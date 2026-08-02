@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PageIntro, SiteFooter, SiteHeader } from "../components/SiteChrome";
 
 export const metadata: Metadata = { title: "Mission" };
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export default function MissionPage() {
   return (
@@ -10,7 +11,7 @@ export default function MissionPage() {
       <section className="section shell mission-placeholder">
         <p>[Your mission statement will be added here.]</p>
       </section>
-      <section className="section shell publication-single"><div><p className="eyebrow">Project proposal</p><h2>Read the proposal</h2><p>The proposal is provided as a document and opens directly as a PDF.</p></div><a className="button button-primary" href="/documents/project-proposal.pdf" target="_blank" rel="noreferrer">Open proposal <span aria-hidden="true">↗</span></a></section>
+      <section className="section shell publication-single"><div><p className="eyebrow">Project proposal</p><h2>Read the proposal</h2><p>The proposal is provided as a document and opens directly as a PDF.</p></div><a className="button button-primary" href={`${basePath}/documents/project-proposal.pdf`} target="_blank" rel="noreferrer">Open proposal <span aria-hidden="true">↗</span></a></section>
     </main><SiteFooter /></>
   );
 }
