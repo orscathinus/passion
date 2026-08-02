@@ -1,6 +1,18 @@
 # AllegoryNow administration guide
 
-The site is currently code-managed. This is the simplest and safest setup while one person is maintaining it. You can edit the files in GitHub, review the change, and publish only after it looks right.
+The website now has a protected visual editor at `/admin/`. GitHub Pages sends that address to the secure administrator service automatically.
+
+## First sign-in
+
+1. Open `https://orscathinus.github.io/passion/admin/`.
+2. Sign in with the authorized ChatGPT account when prompted.
+3. Create an administrator password of at least 16 characters. A four-word passphrase is recommended.
+4. Select the page you want to edit.
+5. Save a draft, review it, and use **Publish changes** only when it is ready.
+
+The administrator password is an additional layer after account authorization. It is stored only as a salted password hash. Administrator sessions use secure, HTTP-only cookies and expire after one hour.
+
+The editor includes page writing, support categories, claims, exhibits, Q&A, contact text, and footer writing. Adding a claim automatically adds it to both Tree and list modes after publication.
 
 ## Where to edit content now
 
@@ -50,43 +62,15 @@ The tree and list pages read from this same file, so the new claim appears in bo
 
 An exhibit is part of the broader project record. It does not automatically prove a claim and is not automatically a source for the separate research paper.
 
-## Full administrator panel: recommended implementation
+## Safeguards
 
-When editing code becomes inconvenient, add a private `/admin` area rather than putting edit controls on public pages.
+- Require both the authorized account and administrator password.
+- Check authorization on the server for every save and publication.
+- Keep drafts separate from the public version.
+- Require a confirmation step before publishing.
+- Preserve earlier draft and published versions.
+- Use stable IDs so claim links do not break when titles change.
+- Record an audit trail.
+- Never expose administrator keys in browser code.
 
-### Access
-
-- Require sign-in for every `/admin` route.
-- Allow only specific administrator accounts.
-- Check authorization on the server for every create, edit, upload, publish, and delete action. Hiding a button in the browser is not security.
-
-### Data
-
-Use a database for:
-
-- projects;
-- claims and their status;
-- broader conclusions;
-- claim-to-conclusion connections;
-- supports and evidence links;
-- mission, biography, Q&A, and rules content;
-- contribution review; and
-- an audit log of who changed what and when.
-
-Use object storage for uploaded PDFs and images. Keep private drafts separate from published records.
-
-### Workflow
-
-The admin panel should have four states: **Draft → Review → Published → Archived**. A public page should read only published content. Each edit should preserve the prior version so a mistake can be reversed.
-
-### Essential safeguards
-
-- validate file type and size;
-- scan filenames and text for identifying information before publication;
-- require a confirmation step before publishing;
-- use stable IDs so links do not break when titles change;
-- record an audit trail;
-- back up the database and uploaded files; and
-- never expose administrator keys in browser code.
-
-For this project, a small authenticated admin panel backed by a database and object storage is enough. A large commercial content-management system would add complexity before the project needs it.
+The editor accepts writing and links. PDF or image uploads still belong in the repository so private or sealed material is never accidentally published through a one-click upload.
