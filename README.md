@@ -2,15 +2,17 @@
 
 A clean, responsive civic-research website for the AllegoryNow Family Court
 inquiry. The site includes a concentric Tree of Inquiry, a separate searchable
-claim list, an exhibit library, project background pages, discussion rules, and
-a contribution form.
+claim list, an exhibit library, project background pages, discussion rules, a
+contribution form, and a server-protected content editor.
 
 See [ADMIN-GUIDE.md](ADMIN-GUIDE.md) for the exact files to edit, the safe
 publishing routine, and the recommended architecture for a future private
 administrator panel.
 
-The application runs on [vinext](https://github.com/cloudflare/vinext), with
-optional Cloudflare D1 and Drizzle support.
+The application runs on [vinext](https://github.com/cloudflare/vinext). Published
+administrator edits are stored in Cloudflare D1; the GitHub Pages build loads
+them through the public read-only content endpoint and retains checked-in text
+as a resilient fallback.
 
 ## GitHub Pages
 

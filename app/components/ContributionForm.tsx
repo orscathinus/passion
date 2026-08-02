@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { inquiryClaims } from "../data/inquiry";
+import { useCmsDocument } from "./CmsProvider";
 
 export function ContributionForm() {
+  const { claims: inquiryClaims } = useCmsDocument();
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [notice, setNotice] = useState("");
 

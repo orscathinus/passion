@@ -1,25 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-
-type Exhibit = {
-  no: string;
-  title: string;
-  description: string;
-  source: string;
-  date: string;
-  relatedClaims: string;
-  href?: string;
-};
-
-const exhibits: Exhibit[] = [{
-  no: "1",
-  title: "[Exhibit title]",
-  description: "[Briefly describe the exhibit and explain how it supports or challenges a claim.]",
-  source: "[Source or creator]",
-  date: "[Date]",
-  relatedClaims: "[Claim number(s)]",
-}];
+import { useCmsDocument } from "./CmsProvider";
 
 function normalizeNumber(value: string) {
   const cleaned = value.trim().replace(/^#/, "");
@@ -27,10 +9,12 @@ function normalizeNumber(value: string) {
 }
 
 export function ExhibitBrowser() {
+  const { exhibits: exhibitContent } = useCmsDocument();
+  const exhibits = exhibitContent.items;
   const [query, setQuery] = useState("");
   const searchNumber = normalizeNumber(query);
   const searching = query.trim().length > 0;
-  const shown = useMemo(() => exhibits.filter((exhibit) => !searching || String(Number(exhibit.no)) === searchNumber), [searchNumber, searching]);
+  const shown = useMemo(() => exhibits.filter((exhibit) => !searching || String(Number(exhibit.no)) === searchNumber), [exhibits, searchNumber, searching]);
 
   return (
     <section className="shell exhibits-browser">

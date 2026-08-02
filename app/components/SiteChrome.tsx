@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { useCmsDocument } from "./CmsProvider";
 
 const navItems = [
   ["/qa-rules", "Q&A + Rules"],
@@ -10,6 +11,7 @@ const navItems = [
 ] as const;
 
 export function SiteHeader() {
+  const cms = useCmsDocument();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -18,7 +20,7 @@ export function SiteHeader() {
       <div className="shell nav-shell">
         <Link className="brand" href="/" onClick={() => setOpen(false)}>
           <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
-          <span>AllegoryNow</span>
+          <span>{cms.site.brandName}</span>
         </Link>
         <button className="menu-button" type="button" aria-expanded={open} aria-controls="site-nav" onClick={() => setOpen(!open)}>
           <span className="sr-only">Toggle menu</span><i /><i />
@@ -44,14 +46,15 @@ export function SiteHeader() {
 }
 
 export function SiteFooter() {
+  const cms = useCmsDocument();
   return (
     <footer className="site-footer">
-      <div className="shell footer-bottom"><span>© 2026 AllegoryNow</span><span>Research and public education only.</span></div>
+      <div className="shell footer-bottom"><span>{cms.site.footerLeft}</span><span>{cms.site.footerRight}</span></div>
     </footer>
   );
 }
 
-export function PageIntro({ eyebrow, title, lede }: { eyebrow: string; title: string; lede: string }) {
+export function PageIntro({ eyebrow, title, lede }: { eyebrow: ReactNode; title: ReactNode; lede: ReactNode }) {
   return (
     <section className="page-intro shell">
       <p className="eyebrow">{eyebrow}</p>

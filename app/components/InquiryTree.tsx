@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { broaderClaims, centralClaim, focusedClaims, inquiryClaims, specificClaims } from "../data/inquiry";
+import { useCmsDocument } from "./CmsProvider";
 
 function point(index: number, total: number, radius: number, offset = -90) {
   const angle = ((offset + (360 / total) * index) * Math.PI) / 180;
@@ -15,11 +15,17 @@ function normalizeNumber(value: string) {
 }
 
 export function InquiryTree() {
+  const cms = useCmsDocument();
+  const inquiryClaims = cms.claims;
+  const centralClaim = inquiryClaims.find((claim) => claim.level === "Central") ?? inquiryClaims[0]!;
+  const broaderClaims = inquiryClaims.filter((claim) => claim.level === "Broader");
+  const focusedClaims = inquiryClaims.filter((claim) => claim.level === "Focused");
+  const specificClaims = inquiryClaims.filter((claim) => claim.level === "Specific");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState("1");
   const searchNumber = normalizeNumber(query);
   const searching = query.trim().length > 0;
-  const match = useMemo(() => inquiryClaims.find((claim) => claim.id === searchNumber), [searchNumber]);
+  const match = useMemo(() => inquiryClaims.find((claim) => claim.id === searchNumber), [inquiryClaims, searchNumber]);
   const selected = match || inquiryClaims.find((claim) => claim.id === selectedId) || centralClaim;
   const show = (id: string) => !searching || match?.id === id;
 
@@ -50,7 +56,7 @@ export function InquiryTree() {
       </div>
 
       <article className="tree-detail detail-goal" aria-live="polite"><div><p className="status">Selected claim</p><span className="detail-id">#{selected.id}</span></div><div><h2>{selected.title}</h2><p>{selected.statement}</p></div></article>
-      <div className="tree-bottom-actions"><p className="tree-philosophy"><b>Connections are intentionally blank.</b> The project’s administrators will add lines after deciding which claims support one another.</p><Link className="button button-quiet" href="/qa-rules#rules">Read the discussion rules</Link></div>
+      <div className="tree-bottom-actions"><p className="tree-philosophy"><b>{cms.inquiry.philosophyTitle}</b> {cms.inquiry.philosophyText}</p><Link className="button button-quiet" href="/qa-rules#rules">Read the discussion rules</Link></div>
     </section>
   );
 }

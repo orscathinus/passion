@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { inquiryClaims, supports } from "../data/inquiry";
+import { useCmsDocument } from "./CmsProvider";
 
 function normalizeNumber(value: string) {
   const cleaned = value.trim().replace(/^#/, "");
@@ -10,6 +10,7 @@ function normalizeNumber(value: string) {
 }
 
 export function InquiryList() {
+  const { claims: inquiryClaims, supports } = useCmsDocument();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"asc" | "desc">("asc");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -18,7 +19,7 @@ export function InquiryList() {
 
   const shown = useMemo(() => inquiryClaims
     .filter((claim) => !searching || claim.id === searchNumber)
-    .sort((a, b) => sort === "asc" ? Number(a.id) - Number(b.id) : Number(b.id) - Number(a.id)), [searchNumber, searching, sort]);
+    .sort((a, b) => sort === "asc" ? Number(a.id) - Number(b.id) : Number(b.id) - Number(a.id)), [inquiryClaims, searchNumber, searching, sort]);
 
   return (
     <section className="shell inquiry-list-page">
