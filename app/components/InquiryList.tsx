@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { inquiryClaims, supports } from "../data/inquiry";
 
@@ -21,8 +22,8 @@ export function InquiryList() {
 
   return (
     <section className="shell inquiry-list-page">
-      <div className="inquiry-toolbar"><div className="mode-links" aria-label="Inquiry views"><a href="/inquiry">Tree mode</a><a className="selected" href="/inquiry/list">List mode</a></div><div className="tree-tools"><label className="tree-search"><span className="sr-only">Search by claim number</span><span aria-hidden="true">⌕</span><input inputMode="numeric" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Enter claim number" type="search" /></label><label className="tree-sort"><span>Claim order</span><select value={sort} onChange={(event) => setSort(event.target.value as "asc" | "desc")}><option value="asc">1 → 12</option><option value="desc">12 → 1</option></select></label></div></div>
-      <div className="list-meta"><p className="list-count" aria-live="polite">{searching ? (shown.length ? "1 claim found" : "No claim with that number") : `Showing all ${inquiryClaims.length} claims`}</p><a href="/qa-rules#rules">Read the discussion rules →</a></div>
+      <div className="inquiry-toolbar"><div className="mode-links" aria-label="Inquiry views"><Link href="/inquiry">Tree mode</Link><Link className="selected" href="/inquiry/list">List mode</Link></div><div className="tree-tools"><label className="tree-search"><span className="sr-only">Search by claim number</span><span aria-hidden="true">⌕</span><input inputMode="numeric" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Enter claim number" type="search" /></label><label className="tree-sort"><span>Claim order</span><select value={sort} onChange={(event) => setSort(event.target.value as "asc" | "desc")}><option value="asc">1 → 12</option><option value="desc">12 → 1</option></select></label></div></div>
+      <div className="list-meta"><p className="list-count" aria-live="polite">{searching ? (shown.length ? "1 claim found" : "No claim with that number") : `Showing all ${inquiryClaims.length} claims`}</p><Link href="/qa-rules#rules">Read the discussion rules →</Link></div>
 
       <div className="claim-list">
         {shown.map((claim) => {

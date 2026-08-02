@@ -12,6 +12,18 @@ administrator panel.
 The application runs on [vinext](https://github.com/cloudflare/vinext), with
 optional Cloudflare D1 and Drizzle support.
 
+## GitHub Pages
+
+The repository includes a separate static-export workflow at
+`.github/workflows/deploy-pages.yml`. Pushes to `main` build the public routes
+with the `/passion` base path and deploy the generated `out/` directory to
+GitHub Pages. In the repository settings, set **Pages → Build and deployment →
+Source** to **GitHub Actions**.
+
+The normal `npm run build` command remains the Sites/Vinext build. Use
+`GITHUB_PAGES=true NEXT_PUBLIC_BASE_PATH=/passion npm run build:pages` to test
+the Pages export locally.
+
 ## Prerequisites
 
 - Node.js `>=22.13.0`
