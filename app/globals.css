@@ -41,10 +41,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
   background: rgba(244, 241, 233, 0.94);
   backdrop-filter: blur(16px);
 }
-.nav-shell { min-height: 78px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.nav-shell { min-height: 88px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .brand { display: inline-flex; align-items: center; gap: 13px; font-size: 19px; font-weight: 760; letter-spacing: -0.025em; }
-.brand-mark { display: block; flex: 0 0 auto; width: 52px; height: 52px; color: var(--rust); }
-.brand-mark path { fill: currentColor; }
+.brand-mark { display: block; flex: 0 0 auto; width: 88px; height: auto; color: var(--rust); overflow: visible; }
+.brand-mark-leg { fill: currentColor; }
+.brand-mark-skyline { fill: var(--forest-dark); }
+.brand-mark-spire { fill: none; stroke: var(--forest-dark); stroke-width: 2.4; stroke-linecap: round; }
+.brand-mark-windows { fill: var(--paper); }
 .nav-links { display: flex; align-items: center; justify-content: flex-end; gap: clamp(13px, 1.6vw, 25px); font-size: 13px; font-weight: 580; color: var(--ink-soft); }
 .nav-links > a, .nav-dropdown > a { position: relative; display: block; padding: 29px 0 27px; white-space: nowrap; transition: color .2s ease; }
 .nav-links > a::after, .nav-dropdown > a::after { content: ""; position: absolute; left: 0; right: 100%; bottom: 20px; height: 2px; background: var(--rust); transition: right .25s ease; }
@@ -424,7 +427,7 @@ p { color: var(--ink-soft); line-height: 1.75; }
 
 @media (max-width: 1050px) {
   .menu-button { display: block; }
-  .nav-links { position: absolute; top: 78px; left: 0; right: 0; display: none; padding: 12px 24px 24px; border-bottom: 1px solid var(--line); background: var(--paper); }
+  .nav-links { position: absolute; top: 88px; left: 0; right: 0; display: none; padding: 12px 24px 24px; border-bottom: 1px solid var(--line); background: var(--paper); }
   .nav-links.open { display: grid; }
   .nav-links > a, .nav-dropdown > a { padding: 12px 0; }
   .nav-links > a::after, .nav-dropdown > a::after { display: none; }
@@ -484,10 +487,10 @@ p { color: var(--ink-soft); line-height: 1.75; }
 }
 
 @media (max-width: 560px) {
-  .nav-shell { min-height: 68px; }
+  .nav-shell { min-height: 74px; }
   .brand { gap: 10px; }
-  .brand-mark { width: 46px; height: 46px; }
-  .nav-links { top: 68px; }
+  .brand-mark { width: 72px; }
+  .nav-links { top: 74px; }
   .page-intro { padding-top: 76px; padding-bottom: 58px; }
   .page-intro h1 { font-size: 49px; }
   .page-intro > p:last-child, .hero-lede { font-size: 16px; }

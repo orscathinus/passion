@@ -19,10 +19,14 @@ export function SiteHeader() {
     <header className="site-header">
       <div className="shell nav-shell">
         <Link className="brand" href="/" onClick={() => setOpen(false)}>
-          <svg className="brand-mark" viewBox="0 0 72 72" aria-hidden="true">
-            <path d="M4 64 28 7h11L17 64H4Z" />
-            <path d="M33 7h11l24 57H55L33 7Z" />
-            <path d="M17 48v-7h6v-6h6v7h4V31h7v-7h3v18h5v-9h6v8h5v7H17Z" />
+          <svg className="brand-mark" viewBox="0 0 112 72" aria-hidden="true">
+            <path className="brand-mark-leg" d="M3 68 31 9c.8-1.9 2-3 4.4-3H46L22 68H3Z" />
+            <path className="brand-mark-leg" d="M66 6h10.6c2.4 0 3.6 1.1 4.4 3l28 59H90L66 6Z" />
+            <path className="brand-mark-spire" d="M55 18v7" />
+            <path className="brand-mark-skyline" d="M17 59v-8h7v-6h6v6h5V39h7v-6h6v10h4V26h7v13h5V31h7v14h5V37h7v-6h7v16h6v4h7v8H17Z" />
+            <g className="brand-mark-windows">
+              <path d="M38 44h2.5v4H38zM44 38h2.5v4H44zM54.25 31h2.5v4h-2.5zM66 36h2.5v4H66zM78.5 41h2.5v4H78.5zM86 36h2.5v4H86z" />
+            </g>
           </svg>
           <span>{cms.site.brandName}</span>
         </Link>
