@@ -21,6 +21,14 @@ export function InquiryTree() {
   const broaderClaims = inquiryClaims.filter((claim) => claim.level === "Broader");
   const focusedClaims = inquiryClaims.filter((claim) => claim.level === "Focused");
   const specificClaims = inquiryClaims.filter((claim) => claim.level === "Specific");
+  const positions = useMemo(() => {
+    const result = new Map<string, { x: number; y: number }>();
+    specificClaims.forEach((claim, index) => result.set(claim.id, point(index, specificClaims.length, 45)));
+    focusedClaims.forEach((claim, index) => result.set(claim.id, point(index, focusedClaims.length, 32, -45)));
+    broaderClaims.forEach((claim, index) => result.set(claim.id, point(index, broaderClaims.length, 20, -90)));
+    result.set(centralClaim.id, { x: 50, y: 50 });
+    return result;
+  }, [broaderClaims, centralClaim.id, focusedClaims, specificClaims]);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState("1");
   const searchNumber = normalizeNumber(query);
@@ -44,8 +52,17 @@ export function InquiryTree() {
 
       <div className="tree-wrap concentric-tree-wrap">
         <div className="tree-legend"><span><i className="specific-dot" /> Specific</span><span><i className="claim-dot" /> Focused</span><span><i className="conclusion-dot" /> Broader</span><span><i className="central-dot" /> Central</span></div>
-        <div className="concentric-tree" aria-label="Concentric Tree of Inquiry. Connections will be added later.">
-          <svg className="concentric-lines" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45" /><circle cx="50" cy="50" r="32" /><circle cx="50" cy="50" r="20" /></svg>
+        <div className="concentric-tree" aria-label="Concentric Tree of Inquiry with published connections between claims.">
+          <svg className="concentric-lines" viewBox="0 0 100 100" aria-hidden="true">
+            <defs><marker id="claim-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs>
+            <circle cx="50" cy="50" r="45" /><circle cx="50" cy="50" r="32" /><circle cx="50" cy="50" r="20" />
+            {cms.connections.map((connection) => {
+              const from = positions.get(connection.from);
+              const to = positions.get(connection.to);
+              if (!from || !to || !show(connection.from) || !show(connection.to)) return null;
+              return <line className="claim-connection-line" key={`${connection.from}-${connection.to}`} x1={from.x} y1={from.y} x2={to.x} y2={to.y} markerEnd="url(#claim-arrow)" />;
+            })}
+          </svg>
           <span className="ring-label ring-label-outer">Specific claims</span><span className="ring-label ring-label-middle">Focused claims</span><span className="ring-label ring-label-inner">Broader claims</span>
 
           {specificClaims.map((claim, index) => { const position = point(index, specificClaims.length, 45); return show(claim.id) ? <Link className="tree-claim-node tree-specific-node" href={`/inquiry/list#claim-${claim.id}`} key={claim.id} style={{ left: `${position.x}%`, top: `${position.y}%` }} aria-label={`Open claim ${claim.id}: ${claim.title}`}><span>#{claim.id}</span><b>{claim.title}</b></Link> : null; })}
