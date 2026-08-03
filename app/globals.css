@@ -42,11 +42,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
   backdrop-filter: blur(16px);
 }
 .nav-shell { min-height: 78px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.brand { display: inline-flex; align-items: center; gap: 11px; font-size: 19px; font-weight: 760; letter-spacing: -0.025em; }
-.brand-mark { position: relative; display: inline-block; width: 29px; height: 29px; overflow: hidden; border-radius: 50%; background: var(--rust); }
-.brand-mark i { position: absolute; left: 13px; bottom: 0; width: 3px; height: 22px; border-radius: 5px; background: var(--paper); transform-origin: bottom; }
-.brand-mark i:nth-child(2) { transform: rotate(43deg); height: 17px; }
-.brand-mark i:nth-child(3) { transform: rotate(-43deg); height: 17px; }
+.brand { display: inline-flex; align-items: center; gap: 13px; font-size: 19px; font-weight: 760; letter-spacing: -0.025em; }
+.brand-mark { display: block; flex: 0 0 auto; width: 52px; height: 52px; color: var(--rust); }
+.brand-mark path { fill: currentColor; }
 .nav-links { display: flex; align-items: center; justify-content: flex-end; gap: clamp(13px, 1.6vw, 25px); font-size: 13px; font-weight: 580; color: var(--ink-soft); }
 .nav-links > a, .nav-dropdown > a { position: relative; display: block; padding: 29px 0 27px; white-space: nowrap; transition: color .2s ease; }
 .nav-links > a::after, .nav-dropdown > a::after { content: ""; position: absolute; left: 0; right: 100%; bottom: 20px; height: 2px; background: var(--rust); transition: right .25s ease; }
@@ -487,6 +485,8 @@ p { color: var(--ink-soft); line-height: 1.75; }
 
 @media (max-width: 560px) {
   .nav-shell { min-height: 68px; }
+  .brand { gap: 10px; }
+  .brand-mark { width: 46px; height: 46px; }
   .nav-links { top: 68px; }
   .page-intro { padding-top: 76px; padding-bottom: 58px; }
   .page-intro h1 { font-size: 49px; }
