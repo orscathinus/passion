@@ -384,11 +384,17 @@ function normalizeDocument(value: unknown): CmsDocument {
   }) };
   unique(exhibits.items.map((item) => item.no), "exhibit numbers");
 
+  const mission = section("mission", defaultCmsDocument.mission);
+  if (mission.proposalEyebrow === "Project proposal") mission.proposalEyebrow = defaultCmsDocument.mission.proposalEyebrow;
+  if (mission.proposalTitle === "Read the proposal") mission.proposalTitle = defaultCmsDocument.mission.proposalTitle;
+  if (mission.proposalText === "The proposal is provided as a document and opens directly as a PDF.") mission.proposalText = defaultCmsDocument.mission.proposalText;
+  if (mission.proposalButton === "Open proposal") mission.proposalButton = defaultCmsDocument.mission.proposalButton;
+
   return {
     schemaVersion: 1,
     site: section("site", defaultCmsDocument.site),
     home: section("home", defaultCmsDocument.home),
-    mission: section("mission", defaultCmsDocument.mission),
+    mission,
     who: section("who", defaultCmsDocument.who),
     inquiry: section("inquiry", defaultCmsDocument.inquiry),
     supports,

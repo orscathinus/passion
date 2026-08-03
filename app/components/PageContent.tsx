@@ -3,12 +3,12 @@
 import { useCmsDocument } from "./CmsProvider";
 import { PageIntro } from "./SiteChrome";
 
-export function MissionContent({ basePath }: { basePath: string }) {
+export function MissionContent() {
   const { mission } = useCmsDocument();
   return <main>
     <PageIntro eyebrow={mission.eyebrow} title={mission.title} lede={mission.lede} />
     <section className="section shell mission-placeholder"><p>{mission.body}</p></section>
-    <section className="section shell publication-single"><div><p className="eyebrow">{mission.proposalEyebrow}</p><h2>{mission.proposalTitle}</h2><p>{mission.proposalText}</p></div><a className="button button-primary" href={`${basePath}/documents/project-proposal.pdf`} target="_blank" rel="noreferrer">{mission.proposalButton} <span aria-hidden="true">↗</span></a></section>
+    <section className="section shell publication-single"><div><p className="eyebrow">{mission.proposalEyebrow}</p><h2>{mission.proposalTitle}</h2><p>{mission.proposalText}</p></div></section>
   </main>;
 }
 

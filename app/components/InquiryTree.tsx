@@ -16,31 +16,7 @@ function normalizeNumber(value: string) {
 
 function connectionStrokeWidth(thickness: number) {
   const level = Math.min(5, Math.max(1, Math.round(thickness || 3)));
-  return [0, 3, 5.5, 8.5, 12, 16][level];
-}
-
-function connectionEnd(
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-  targetLevel: string,
-) {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const distance = Math.hypot(dx, dy);
-  if (!distance) return to;
-
-  const unitX = dx / distance;
-  const unitY = dy / distance;
-  if (targetLevel === "Central") {
-    return { x: to.x - unitX * 12.8, y: to.y - unitY * 12.8 };
-  }
-
-  const halfWidth = targetLevel === "Broader" ? 9.6 : 8.2;
-  const halfHeight = targetLevel === "Broader" ? 5.5 : 5;
-  const horizontal = Math.abs(unitX) < 0.0001 ? Number.POSITIVE_INFINITY : halfWidth / Math.abs(unitX);
-  const vertical = Math.abs(unitY) < 0.0001 ? Number.POSITIVE_INFINITY : halfHeight / Math.abs(unitY);
-  const offset = Math.min(horizontal, vertical) + 0.35;
-  return { x: to.x - unitX * offset, y: to.y - unitY * offset };
+  return [0, 1.5, 2.5, 3.5, 5, 6.5][level];
 }
 
 export function InquiryTree() {
@@ -88,10 +64,8 @@ export function InquiryTree() {
               const from = positions.get(connection.from);
               const to = positions.get(connection.to);
               if (!from || !to || !show(connection.from) || !show(connection.to)) return null;
-              const target = inquiryClaims.find((claim) => claim.id === connection.to);
-              const end = connectionEnd(from, to, target?.level ?? "Focused");
               const strokeWidth = connectionStrokeWidth(connection.thickness);
-              return <g key={`${connection.from}-${connection.to}`}><line className="claim-connection-halo" x1={from.x} y1={from.y} x2={end.x} y2={end.y} style={{ strokeWidth: strokeWidth + 4 }} strokeLinecap="round" vectorEffect="non-scaling-stroke" /><line className="claim-connection-line" x1={from.x} y1={from.y} x2={end.x} y2={end.y} style={{ strokeWidth }} strokeLinecap="round" vectorEffect="non-scaling-stroke" /></g>;
+              return <g key={`${connection.from}-${connection.to}`}><line className="claim-connection-halo" x1={from.x} y1={from.y} x2={to.x} y2={to.y} style={{ strokeWidth: strokeWidth + 2.5 }} strokeLinecap="round" vectorEffect="non-scaling-stroke" /><line className="claim-connection-line" x1={from.x} y1={from.y} x2={to.x} y2={to.y} style={{ strokeWidth }} strokeLinecap="round" vectorEffect="non-scaling-stroke" /></g>;
             })}
           </svg>
           <span className="ring-label ring-label-outer">Specific claims</span><span className="ring-label ring-label-middle">Focused claims</span><span className="ring-label ring-label-inner">Broader claims</span>
