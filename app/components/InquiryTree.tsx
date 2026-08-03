@@ -64,7 +64,6 @@ export function InquiryTree() {
     return result;
   }, [broaderClaims, centralClaim.id, focusedClaims, specificClaims]);
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState("1");
   const [view, setView] = useState<TreeView>({ scale: 1, x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -75,7 +74,6 @@ export function InquiryTree() {
   const searchNumber = normalizeNumber(query);
   const searching = query.trim().length > 0;
   const match = useMemo(() => inquiryClaims.find((claim) => claim.id === searchNumber), [inquiryClaims, searchNumber]);
-  const selected = match || inquiryClaims.find((claim) => claim.id === selectedId) || centralClaim;
   const show = (id: string) => !searching || match?.id === id;
 
   const updateView = (next: TreeView) => {
@@ -268,14 +266,13 @@ export function InquiryTree() {
 
           {specificClaims.map((claim, index) => { const position = point(index, specificClaims.length, 45); return show(claim.id) ? <Link className="tree-claim-node tree-specific-node" href={`/inquiry/list#claim-${claim.id}`} key={claim.id} style={{ left: `${position.x}%`, top: `${position.y}%` }} aria-label={`Open claim ${claim.id}: ${claim.title}`}><span>#{claim.id}</span><b>{claim.title}</b></Link> : null; })}
           {focusedClaims.map((claim, index) => { const position = point(index, focusedClaims.length, 32, -45); return show(claim.id) ? <Link className="tree-claim-node" href={`/inquiry/list#claim-${claim.id}`} key={claim.id} style={{ left: `${position.x}%`, top: `${position.y}%` }} aria-label={`Open claim ${claim.id}: ${claim.title}`}><span>#{claim.id}</span><b>{claim.title}</b></Link> : null; })}
-          {broaderClaims.map((claim, index) => { const position = point(index, broaderClaims.length, 20, -90); return show(claim.id) ? <button className={`tree-conclusion-node ${selected.id === claim.id ? "selected" : ""}`} key={claim.id} onClick={() => setSelectedId(claim.id)} style={{ left: `${position.x}%`, top: `${position.y}%` }} type="button"><span>#{claim.id}</span><b>{claim.title}</b></button> : null; })}
-          {show(centralClaim.id) && <button className="tree-center-node" onClick={() => setSelectedId(centralClaim.id)} type="button"><span>#{centralClaim.id}</span><b>Protective.<br />Explainable.<br />Correctable.</b></button>}
+          {broaderClaims.map((claim, index) => { const position = point(index, broaderClaims.length, 20, -90); return show(claim.id) ? <Link className="tree-conclusion-node" href={`/inquiry/list#claim-${claim.id}`} key={claim.id} style={{ left: `${position.x}%`, top: `${position.y}%` }} aria-label={`Open claim ${claim.id}: ${claim.title}`}><span>#{claim.id}</span><b>{claim.title}</b></Link> : null; })}
+          {show(centralClaim.id) && <Link className="tree-center-node" href={`/inquiry/list#claim-${centralClaim.id}`} aria-label={`Open claim ${centralClaim.id}: ${centralClaim.title}`}><span>#{centralClaim.id}</span><b>Protective.<br />Explainable.<br />Correctable.</b></Link>}
         </div>
           </div>
         </div>
       </div>
 
-      <article className="tree-detail detail-goal" aria-live="polite"><div><p className="status">Selected claim</p><span className="detail-id">#{selected.id}</span></div><div><h2>{selected.title}</h2><p>{selected.statement}</p></div></article>
       <div className="tree-bottom-actions"><p className="tree-philosophy"><b>{cms.inquiry.philosophyTitle}</b> {cms.inquiry.philosophyText}</p><Link className="button button-quiet" href="/qa-rules#rules">Read the discussion rules</Link></div>
     </section>
   );
