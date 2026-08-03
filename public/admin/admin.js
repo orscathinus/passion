@@ -396,7 +396,7 @@
     const section = element("section", { class: "editor-section moderation-section" });
     section.append(
       element("h3", {}, "Public exhibit discussions"),
-      element("p", { class: "field-note" }, "Comments appear immediately after they are posted. Hide comments that reveal private information, target people, or violate the discussion rules. Hidden comments can be restored."),
+      element("p", { class: "field-note" }, "Comments appear immediately after they are posted. Hide comments that reveal private information, target people, or violate the discussion rules. Replies below a hidden comment also disappear until it is restored."),
     );
     const list = element("div", { class: "moderation-list" });
     list.append(element("p", { class: "field-note" }, "Loading comments…"));

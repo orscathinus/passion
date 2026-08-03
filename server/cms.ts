@@ -165,10 +165,23 @@ async function publicDocument(request: Request, db: D1Database) {
 
 async function publicComments(request: Request, db: D1Database) {
   const exhibitNo = commentText(new URL(request.url).searchParams.get("exhibit"), "Exhibit number", 1, 20, true);
-  const results = await db.prepare("SELECT id, exhibit_no, parent_id, author_name, body, status, created_at FROM exhibit_comments WHERE exhibit_no = ? AND status = 'visible' ORDER BY created_at ASC, id ASC LIMIT 500")
+  const results = await db.prepare("SELECT id, exhibit_no, parent_id, author_name, body, status, created_at FROM exhibit_comments WHERE exhibit_no = ? ORDER BY created_at ASC, id ASC LIMIT 500")
     .bind(exhibitNo).all<CommentRow>();
-  const comments = (results.results ?? []).map(publicComment);
+  const rows = results.results ?? [];
+  const rowsById = new Map(rows.map((comment) => [comment.id, comment]));
+  const comments = rows.filter((comment) => commentAndAncestorsAreVisible(comment, rowsById)).map(publicComment);
   return applyPublicCors(request, json({ comments }, 200, { "Cache-Control": "no-store" }));
+}
+
+function commentAndAncestorsAreVisible(comment: CommentRow, rowsById: Map<string, CommentRow>) {
+  const visited = new Set<string>();
+  let cursor: CommentRow | undefined = comment;
+  while (cursor) {
+    if (cursor.status !== "visible" || visited.has(cursor.id)) return false;
+    visited.add(cursor.id);
+    cursor = cursor.parent_id ? rowsById.get(cursor.parent_id) : undefined;
+  }
+  return true;
 }
 
 async function createPublicComment(request: Request, db: D1Database) {
