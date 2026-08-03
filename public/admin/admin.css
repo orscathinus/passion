@@ -104,6 +104,22 @@ input:focus, textarea:focus, select:focus { border-color: var(--rust); box-shado
 .connection-row-controls { flex: 0 0 auto; display: flex; align-items: center; gap: 14px; }
 .connection-row-thickness { grid-template-columns: 88px 72px; align-items: center; gap: 8px; color: var(--ink-soft); font-size: 10px; }
 .connection-row .small-button { flex: 0 0 auto; }
+.moderation-section { gap: 22px; }
+.moderation-list { display: grid; gap: 12px; }
+.moderation-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px 22px; padding: 20px; border: 1px solid var(--line); border-left: 3px solid var(--forest); background: white; }
+.moderation-card.hidden-comment { border-left-color: var(--danger); background: rgba(159,47,40,.035); }
+.moderation-card header { grid-column: 1 / -1; display: flex; align-items: start; justify-content: space-between; gap: 20px; }
+.moderation-card header > div { display: grid; gap: 4px; }
+.moderation-card header b { font-size: 13px; }
+.moderation-card header span:not(.moderation-status) { color: var(--ink-soft); font-size: 10px; }
+.moderation-status { padding: 5px 8px; border-radius: 20px; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.moderation-status.visible { color: var(--forest); background: rgba(23,58,49,.1); }
+.moderation-status.hidden { color: var(--danger); background: rgba(159,47,40,.1); }
+.moderation-body { grid-column: 1 / -1; margin: 0; color: var(--ink-soft); font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; white-space: pre-wrap; }
+.moderation-card time { align-self: center; color: var(--ink-soft); font-size: 10px; }
+.moderation-card > button { min-height: 38px; justify-self: end; }
+.moderation-empty { margin: 0; padding: 28px; border: 1px dashed var(--line); color: var(--ink-soft); font-size: 12px; text-align: center; }
+.moderation-empty.error { color: var(--danger); }
 .unsaved::after { content: "Unsaved"; margin-left: 9px; color: var(--rust-dark); font-family: Inter, sans-serif; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 button:disabled { opacity: .5; cursor: not-allowed; transform: none !important; }
 @media (max-width: 900px) {
@@ -125,4 +141,6 @@ button:disabled { opacity: .5; cursor: not-allowed; transform: none !important; 
   .connection-thickness-control span { grid-column: 1 / -1; }
   .connection-row { align-items: stretch; flex-direction: column; }
   .connection-row-controls { justify-content: space-between; }
+  .moderation-card { grid-template-columns: 1fr; }
+  .moderation-card > button { justify-self: start; }
 }
