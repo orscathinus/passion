@@ -12,7 +12,7 @@
   const app = document.querySelector("#app");
   const sessionActions = document.querySelector("#session-actions");
   const logoutButton = document.querySelector("#logout-button");
-  const state = { document: null, csrfToken: "", draftVersion: 0, publishedVersion: 0, page: "home", dirty: false, selectedClaim: "1", connectionStart: "" };
+  const state = { document: null, csrfToken: "", draftVersion: 0, publishedVersion: 0, page: "home", dirty: false, selectedClaim: "1", connectionStart: "", connectionThickness: 3 };
 
   const sections = [
     { id: "home", label: "Home", title: "Home page", fields: [["headline","Main headline","textarea"],["goalLabel","Path goal label","input"],["primaryButton","Primary button","input"],["secondaryButton","Secondary button","input"]] },
@@ -87,6 +87,10 @@
 
   function openEditor(payload) {
     if (!Array.isArray(payload.document.connections)) payload.document.connections = [];
+    payload.document.connections = payload.document.connections.map((connection) => ({
+      ...connection,
+      thickness: Number.isInteger(connection.thickness) && connection.thickness >= 1 && connection.thickness <= 5 ? connection.thickness : 3,
+    }));
     Object.assign(state, {
       document: payload.document,
       csrfToken: payload.csrfToken,
@@ -221,6 +225,21 @@
         : "Click the supporting claim first, then click the claim it supports. An arrow will be drawn in that direction."),
     );
 
+    const thicknessControl = element("label", { class: "connection-thickness-control" });
+    const thicknessCopy = element("span");
+    thicknessCopy.append(
+      element("b", {}, "New line thickness"),
+      element("small", {}, "Choose a width, then click the two claims you want to connect."),
+    );
+    const thicknessInput = element("input", { type: "range", min: "1", max: "5", step: "1", value: String(state.connectionThickness), "aria-label": "New line thickness" });
+    const thicknessOutput = element("output", {}, thicknessLabel(state.connectionThickness));
+    thicknessInput.addEventListener("input", () => {
+      state.connectionThickness = Number(thicknessInput.value);
+      thicknessOutput.textContent = thicknessLabel(state.connectionThickness);
+    });
+    thicknessControl.append(thicknessCopy, thicknessInput, thicknessOutput);
+    section.append(thicknessControl);
+
     const scroll = element("div", { class: "connection-map-scroll" });
     const map = element("div", { class: "connection-map" });
     const labels = element("div", { class: "connection-level-labels", "aria-hidden": "true" });
@@ -234,11 +253,11 @@
     svg.append(defs);
 
     const positions = connectionPositions();
-    state.document.connections.forEach((connection) => {
+    state.document.connections.forEach((connection, index) => {
       const from = positions.get(connection.from);
       const to = positions.get(connection.to);
       if (!from || !to) return;
-      svg.append(svgElement("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, "marker-end": "url(#admin-claim-arrow)" }));
+      svg.append(svgElement("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, "marker-end": "url(#admin-claim-arrow)", "stroke-width": connection.thickness, "stroke-linecap": "round", "data-connection-index": index }));
     });
     map.append(svg);
 
@@ -263,10 +282,22 @@
         const from = state.document.claims.find((claim) => claim.id === connection.from);
         const to = state.document.claims.find((claim) => claim.id === connection.to);
         const row = element("div", { class: "connection-row" });
-        row.append(element("span", {}, `#${connection.from} ${from?.title || "Unknown claim"} → #${connection.to} ${to?.title || "Unknown claim"}`));
+        row.append(element("span", { class: "connection-row-label" }, `#${connection.from} ${from?.title || "Unknown claim"} → #${connection.to} ${to?.title || "Unknown claim"}`));
+        const controls = element("div", { class: "connection-row-controls" });
+        const widthLabel = element("label", { class: "connection-row-thickness" }, "Thickness");
+        const widthInput = element("input", { type: "range", min: "1", max: "5", step: "1", value: String(connection.thickness), "aria-label": `Thickness of line from claim ${connection.from} to claim ${connection.to}` });
+        const widthOutput = element("output", {}, thicknessLabel(connection.thickness));
+        widthInput.addEventListener("input", () => {
+          connection.thickness = Number(widthInput.value);
+          widthOutput.textContent = thicknessLabel(connection.thickness);
+          svg.querySelector(`[data-connection-index="${index}"]`)?.setAttribute("stroke-width", String(connection.thickness));
+          markDirty();
+        });
+        widthLabel.append(widthInput, widthOutput);
         const remove = element("button", { class: "small-button", type: "button" }, "Remove line");
         remove.addEventListener("click", () => { state.document.connections.splice(index, 1); markDirty(); renderSection(); });
-        row.append(remove);
+        controls.append(widthLabel, remove);
+        row.append(controls);
         list.append(row);
       });
     }
@@ -294,7 +325,7 @@
       setNotice(`The line from claim #${from} to claim #${id} already exists.`, true);
       return;
     }
-    state.document.connections.push({ from, to: id });
+    state.document.connections.push({ from, to: id, thickness: state.connectionThickness });
     markDirty();
     renderSection();
     setNotice(`Line added: claim #${from} supports claim #${id}. Save the draft when ready.`);
@@ -308,6 +339,12 @@
       claims.forEach((claim, index) => positions.set(claim.id, { x: levelX[level], y: ((index + 1) / (claims.length + 1)) * 100 }));
     });
     return positions;
+  }
+
+  function thicknessLabel(value) {
+    if (value <= 1) return "Thin · 1 px";
+    if (value >= 5) return "Thick · 5 px";
+    return `${value < 3 ? "Light" : value > 3 ? "Bold" : "Medium"} · ${value} px`;
   }
 
   function renderQa(container) {
