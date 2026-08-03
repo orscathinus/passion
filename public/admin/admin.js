@@ -246,11 +246,6 @@
     ["Specific claims", "Focused claims", "Broader claims", "Central claim"].forEach((label) => labels.append(element("span", {}, label)));
     map.append(labels);
     const svg = svgElement("svg", { class: "connection-map-lines", viewBox: "0 0 100 100", "aria-hidden": "true", preserveAspectRatio: "none" });
-    const defs = svgElement("defs");
-    const marker = svgElement("marker", { id: "admin-claim-arrow", viewBox: "0 0 12 12", refX: "11", refY: "6", markerWidth: "3.2", markerHeight: "3.2", markerUnits: "userSpaceOnUse", orient: "auto" });
-    marker.append(svgElement("path", { d: "M 0 0 L 12 6 L 0 12 z" }));
-    defs.append(marker);
-    svg.append(defs);
 
     const positions = connectionPositions();
     state.document.connections.forEach((connection, index) => {
@@ -261,7 +256,7 @@
       const end = connectionEnd(from, to, target?.level || "Focused");
       const strokeWidth = connectionStrokeWidth(connection.thickness);
       svg.append(svgElement("line", { class: "connection-line-halo", x1: from.x, y1: from.y, x2: end.x, y2: end.y, "stroke-width": strokeWidth + 4, "stroke-linecap": "round", "data-connection-halo-index": index }));
-      svg.append(svgElement("line", { class: "connection-line", x1: from.x, y1: from.y, x2: end.x, y2: end.y, "marker-end": "url(#admin-claim-arrow)", "stroke-width": strokeWidth, "stroke-linecap": "round", "data-connection-index": index }));
+      svg.append(svgElement("line", { class: "connection-line", x1: from.x, y1: from.y, x2: end.x, y2: end.y, "stroke-width": strokeWidth, "stroke-linecap": "round", "data-connection-index": index }));
     });
     map.append(svg);
 
@@ -349,7 +344,7 @@
 
   function connectionStrokeWidth(value) {
     const level = Math.min(5, Math.max(1, Math.round(value || 3)));
-    return [0, 2, 3.75, 5.75, 8, 10.5][level];
+    return [0, 3, 5.5, 8.5, 12, 16][level];
   }
 
   function connectionEnd(from, to, targetLevel) {
@@ -363,7 +358,7 @@
     const halfHeight = targetLevel === "Central" ? 9 : 7;
     const horizontal = Math.abs(unitX) < 0.0001 ? Number.POSITIVE_INFINITY : halfWidth / Math.abs(unitX);
     const vertical = Math.abs(unitY) < 0.0001 ? Number.POSITIVE_INFINITY : halfHeight / Math.abs(unitY);
-    const offset = Math.min(horizontal, vertical) + 1.5;
+    const offset = Math.min(horizontal, vertical) + 0.35;
     return { x: to.x - unitX * offset, y: to.y - unitY * offset };
   }
 

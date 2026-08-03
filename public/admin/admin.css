@@ -89,7 +89,6 @@ input:focus, textarea:focus, select:focus { border-color: var(--rust); box-shado
 .connection-map-lines line { vector-effect: non-scaling-stroke; }
 .connection-map-lines .connection-line-halo { stroke: var(--white); opacity: .94; }
 .connection-map-lines .connection-line { stroke: var(--rust-dark); opacity: .98; }
-.connection-map-lines marker path { fill: var(--rust-dark); }
 .connection-node { position: absolute; z-index: 3; width: 132px; min-height: 58px; padding: 9px 10px; border: 1px solid var(--line); border-top: 3px solid var(--gold); background: white; color: var(--ink); box-shadow: 0 7px 18px rgba(23,37,33,.08); text-align: left; cursor: pointer; transform: translate(-50%,-50%); }
 .connection-node:hover, .connection-node:focus-visible { border-color: var(--rust); outline: 3px solid rgba(169,71,44,.14); }
 .connection-node.selected { border-color: var(--rust); background: #f9eadd; box-shadow: 0 0 0 4px rgba(169,71,44,.16); }
