@@ -6,12 +6,9 @@ export type FaqItem = {
 };
 
 export type Exhibit = {
-  date: string;
   description: string;
   href: string;
   no: string;
-  relatedClaims: string;
-  source: string;
   title: string;
 };
 
@@ -150,9 +147,6 @@ export const defaultCmsDocument: CmsDocument = {
       no: "1",
       title: "[Exhibit title]",
       description: "[Briefly describe the exhibit and explain how it supports or challenges a claim.]",
-      source: "[Source or creator]",
-      date: "[Date]",
-      relatedClaims: "[Claim number(s)]",
       href: "",
     }],
   },
