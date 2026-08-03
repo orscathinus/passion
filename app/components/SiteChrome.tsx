@@ -19,7 +19,11 @@ export function SiteHeader() {
     <header className="site-header">
       <div className="shell nav-shell">
         <Link className="brand" href="/" onClick={() => setOpen(false)}>
-          <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
+          <svg className="brand-mark" viewBox="0 0 72 72" aria-hidden="true">
+            <path d="M4 64 28 7h11L17 64H4Z" />
+            <path d="M33 7h11l24 57H55L33 7Z" />
+            <path d="M17 48v-7h6v-6h6v7h4V31h7v-7h3v18h5v-9h6v8h5v7H17Z" />
+          </svg>
           <span>{cms.site.brandName}</span>
         </Link>
         <button className="menu-button" type="button" aria-expanded={open} aria-controls="site-nav" onClick={() => setOpen(!open)}>
