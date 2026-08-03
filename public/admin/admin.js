@@ -16,7 +16,7 @@
 
   const sections = [
     { id: "home", label: "Home", title: "Home page", fields: [["headline","Main headline","textarea"],["goalLabel","Path goal label","input"],["primaryButton","Primary button","input"],["secondaryButton","Secondary button","input"]] },
-    { id: "mission", label: "Mission", title: "Mission page", fields: [["eyebrow","Small heading","input"],["title","Page title","textarea"],["lede","Introduction","textarea"],["body","Mission statement","textarea"],["proposalEyebrow","Proposal label","input"],["proposalTitle","Proposal heading","input"],["proposalText","Proposal description","textarea"],["proposalButton","Proposal button","input"]] },
+    { id: "mission", label: "Mission", title: "Mission page", fields: [["eyebrow","Small heading","input"],["title","Page title","textarea"],["lede","Introduction","textarea"],["body","Mission statement","textarea"],["proposalEyebrow","Reform proposal label","input"],["proposalTitle","Reform proposal heading","input"],["proposalText","Reform proposal description","textarea"]] },
     { id: "who", label: "Who We Are", title: "Who We Are page", fields: [["eyebrow","Small heading","input"],["title","Page title","textarea"],["lede","Introduction","textarea"],["monogram","Profile initials","input"],["name","Name","input"],["role","Role and credentials","input"],["bio","Biography","textarea"],["paperTitle","Research paper title","textarea"],["paperDescription","Research paper description","textarea"]] },
     { id: "inquiry", label: "Tree + Claims", title: "Tree of Inquiry", custom: "claims" },
     { id: "exhibits", label: "Exhibits", title: "Exhibits page", custom: "exhibits" },
@@ -252,11 +252,9 @@
       const from = positions.get(connection.from);
       const to = positions.get(connection.to);
       if (!from || !to) return;
-      const target = state.document.claims.find((claim) => claim.id === connection.to);
-      const end = connectionEnd(from, to, target?.level || "Focused");
       const strokeWidth = connectionStrokeWidth(connection.thickness);
-      svg.append(svgElement("line", { class: "connection-line-halo", x1: from.x, y1: from.y, x2: end.x, y2: end.y, "stroke-width": strokeWidth + 4, "stroke-linecap": "round", "data-connection-halo-index": index }));
-      svg.append(svgElement("line", { class: "connection-line", x1: from.x, y1: from.y, x2: end.x, y2: end.y, "stroke-width": strokeWidth, "stroke-linecap": "round", "data-connection-index": index }));
+      svg.append(svgElement("line", { class: "connection-line-halo", x1: from.x, y1: from.y, x2: to.x, y2: to.y, "stroke-width": strokeWidth + 2.5, "stroke-linecap": "round", "data-connection-halo-index": index }));
+      svg.append(svgElement("line", { class: "connection-line", x1: from.x, y1: from.y, x2: to.x, y2: to.y, "stroke-width": strokeWidth, "stroke-linecap": "round", "data-connection-index": index }));
     });
     map.append(svg);
 
@@ -291,7 +289,7 @@
           widthOutput.textContent = thicknessLabel(connection.thickness);
           const strokeWidth = connectionStrokeWidth(connection.thickness);
           svg.querySelector(`[data-connection-index="${index}"]`)?.setAttribute("stroke-width", String(strokeWidth));
-          svg.querySelector(`[data-connection-halo-index="${index}"]`)?.setAttribute("stroke-width", String(strokeWidth + 4));
+          svg.querySelector(`[data-connection-halo-index="${index}"]`)?.setAttribute("stroke-width", String(strokeWidth + 2.5));
           markDirty();
         });
         widthLabel.append(widthInput, widthOutput);
@@ -344,22 +342,7 @@
 
   function connectionStrokeWidth(value) {
     const level = Math.min(5, Math.max(1, Math.round(value || 3)));
-    return [0, 3, 5.5, 8.5, 12, 16][level];
-  }
-
-  function connectionEnd(from, to, targetLevel) {
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const distance = Math.hypot(dx, dy);
-    if (!distance) return to;
-    const unitX = dx / distance;
-    const unitY = dy / distance;
-    const halfWidth = targetLevel === "Central" ? 10.5 : 10;
-    const halfHeight = targetLevel === "Central" ? 9 : 7;
-    const horizontal = Math.abs(unitX) < 0.0001 ? Number.POSITIVE_INFINITY : halfWidth / Math.abs(unitX);
-    const vertical = Math.abs(unitY) < 0.0001 ? Number.POSITIVE_INFINITY : halfHeight / Math.abs(unitY);
-    const offset = Math.min(horizontal, vertical) + 0.35;
-    return { x: to.x - unitX * offset, y: to.y - unitY * offset };
+    return [0, 1.5, 2.5, 3.5, 5, 6.5][level];
   }
 
   function thicknessLabel(value) {
