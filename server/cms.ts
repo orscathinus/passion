@@ -1,4 +1,5 @@
 import { defaultCmsDocument, type CmsDocument } from "../app/data/cms";
+import { derivePassword } from "./password";
 
 export type CmsEnv = {
   ADMIN_EMAILS?: string;
@@ -332,6 +333,22 @@ function normalizeDocument(value: unknown): CmsDocument {
     };
   });
   unique(claims.map((claim) => claim.id), "claim IDs");
+  const knownClaims = new Set(claims.map((claim) => claim.id));
+  const connectionsInput = value.connections ?? [];
+  if (!Array.isArray(connectionsInput) || connectionsInput.length > 500) {
+    throw new CmsValidationError("Claim connections must be a list of no more than 500 entries.");
+  }
+  const connections = connectionsInput.map((item, index) => {
+    if (!isRecord(item)) throw new CmsValidationError(`Claim connection ${index + 1} is invalid.`);
+    const from = text(item.from, `claim connection ${index + 1} starting claim`, 12);
+    const to = text(item.to, `claim connection ${index + 1} destination claim`, 12);
+    if (!knownClaims.has(from) || !knownClaims.has(to)) {
+      throw new CmsValidationError(`Claim connection ${index + 1} refers to a missing claim.`);
+    }
+    if (from === to) throw new CmsValidationError(`Claim ${from} cannot connect to itself.`);
+    return { from, to };
+  });
+  unique(connections.map((connection) => `${connection.from}->${connection.to}`), "claim connections");
   const knownSupports = new Set(supports.map((support) => support.id));
   for (const claim of claims) {
     const missing = claim.supportIds.find((supportId) => !knownSupports.has(supportId));
@@ -373,6 +390,7 @@ function normalizeDocument(value: unknown): CmsDocument {
     inquiry: section("inquiry", defaultCmsDocument.inquiry),
     supports,
     claims,
+    connections,
     exhibits,
     qa,
     contact: section("contact", defaultCmsDocument.contact),
@@ -432,12 +450,6 @@ function requireSameOrigin(request: Request) {
   if (!origin || origin !== new URL(request.url).origin) throw new CmsValidationError("This request did not come from the administrator page.");
 }
 
-async function derivePassword(password: string, salt: string, iterations: number) {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: fromBase64Url(salt), iterations }, key, 256);
-  return toBase64Url(new Uint8Array(bits));
-}
-
 async function sha256(value: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return toBase64Url(new Uint8Array(digest));
@@ -453,12 +465,6 @@ function toBase64Url(bytes: Uint8Array) {
   let binary = "";
   bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function fromBase64Url(value: string) {
-  const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - value.length % 4) % 4);
-  const binary = atob(padded);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
 function constantTimeEqual(left: string, right: string) {
