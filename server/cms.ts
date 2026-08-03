@@ -1,4 +1,5 @@
 import { defaultCmsDocument, type CmsDocument } from "../app/data/cms";
+import { derivePassword } from "./password";
 
 export type CmsEnv = {
   ADMIN_EMAILS?: string;
@@ -384,11 +385,17 @@ function normalizeDocument(value: unknown): CmsDocument {
   }) };
   unique(exhibits.items.map((item) => item.no), "exhibit numbers");
 
+  const mission = section("mission", defaultCmsDocument.mission);
+  if (mission.proposalEyebrow === "Project proposal") mission.proposalEyebrow = defaultCmsDocument.mission.proposalEyebrow;
+  if (mission.proposalTitle === "Read the proposal") mission.proposalTitle = defaultCmsDocument.mission.proposalTitle;
+  if (mission.proposalText === "The proposal is provided as a document and opens directly as a PDF.") mission.proposalText = defaultCmsDocument.mission.proposalText;
+  if (mission.proposalButton === "Open proposal") mission.proposalButton = defaultCmsDocument.mission.proposalButton;
+
   return {
     schemaVersion: 1,
     site: section("site", defaultCmsDocument.site),
     home: section("home", defaultCmsDocument.home),
-    mission: section("mission", defaultCmsDocument.mission),
+    mission,
     who: section("who", defaultCmsDocument.who),
     inquiry: section("inquiry", defaultCmsDocument.inquiry),
     supports,
@@ -453,12 +460,6 @@ function requireSameOrigin(request: Request) {
   if (!origin || origin !== new URL(request.url).origin) throw new CmsValidationError("This request did not come from the administrator page.");
 }
 
-async function derivePassword(password: string, salt: string, iterations: number) {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: fromBase64Url(salt), iterations }, key, 256);
-  return toBase64Url(new Uint8Array(bits));
-}
-
 async function sha256(value: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return toBase64Url(new Uint8Array(digest));
@@ -474,12 +475,6 @@ function toBase64Url(bytes: Uint8Array) {
   let binary = "";
   bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function fromBase64Url(value: string) {
-  const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - value.length % 4) % 4);
-  const binary = atob(padded);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
 function constantTimeEqual(left: string, right: string) {
