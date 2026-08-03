@@ -12,13 +12,12 @@ export function MissionContent() {
   </main>;
 }
 
-export function WhoContent({ basePath }: { basePath: string }) {
+export function WhoContent() {
   const { who } = useCmsDocument();
   return <main>
     <PageIntro eyebrow={who.eyebrow} title={who.title} lede={who.lede} />
     <section className="section shell profile-layout profile-layout-single">
       <article className="profile-card"><div className="profile-monogram">{who.monogram}</div><div><p className="eyebrow">Founder + lead researcher</p><h2>{who.name}</h2><p className="profile-role">{who.role}</p><p>{who.bio}</p></div></article>
     </section>
-    <section className="section shell"><div className="section-heading"><p className="eyebrow">Research paper</p><h2>Project research</h2></div><div className="publication-grid publication-grid-single"><a href={`${basePath}/documents/research-paper.pdf`} target="_blank" rel="noreferrer" className="publication-card"><span>Research paper</span><h3>{who.paperTitle}</h3><p>{who.paperDescription}</p><b>Open paper ↗</b></a></div></section>
   </main>;
 }
