@@ -1,16 +1,18 @@
 import type { NextConfig } from "next";
 
 const isGitHubPages = process.env.GITHUB_PAGES === "true";
+const isCloudflarePages = process.env.CLOUDFLARE_PAGES === "true";
+const isStaticExport = isGitHubPages || isCloudflarePages;
 const repositoryName = process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "passion";
 const basePath = isGitHubPages ? `/${repositoryName}` : "";
 
 const nextConfig: NextConfig = {
-  ...(isGitHubPages ? { output: "export" as const } : {}),
+  ...(isStaticExport ? { output: "export" as const } : {}),
   basePath,
   assetPrefix: basePath || undefined,
   trailingSlash: true,
-  images: { unoptimized: isGitHubPages },
-  ...(isGitHubPages
+  images: { unoptimized: isStaticExport },
+  ...(isStaticExport
     ? { typescript: { tsconfigPath: "tsconfig.pages.json" } }
     : {}),
 };
