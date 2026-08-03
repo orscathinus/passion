@@ -17,7 +17,7 @@
   const sections = [
     { id: "home", label: "Home", title: "Home page", fields: [["headline","Main headline","textarea"],["goalLabel","Path goal label","input"],["primaryButton","Primary button","input"],["secondaryButton","Secondary button","input"]] },
     { id: "mission", label: "Mission", title: "Mission page", fields: [["eyebrow","Small heading","input"],["title","Page title","textarea"],["lede","Introduction","textarea"],["body","Mission statement","textarea"],["proposalEyebrow","Reform proposal label","input"],["proposalTitle","Reform proposal heading","input"],["proposalText","Reform proposal description","textarea"]] },
-    { id: "who", label: "Who We Are", title: "Who We Are page", fields: [["eyebrow","Small heading","input"],["title","Page title","textarea"],["lede","Introduction","textarea"],["monogram","Profile initials","input"],["name","Name","input"],["role","Role and credentials","input"],["bio","Biography","textarea"],["paperTitle","Research paper title","textarea"],["paperDescription","Research paper description","textarea"]] },
+    { id: "who", label: "Who We Are", title: "Who We Are page", fields: [["eyebrow","Small heading","input"],["title","Page title","textarea"],["lede","Introduction","textarea"],["monogram","Profile initials","input"],["name","Name","input"],["role","Role and credentials","input"],["bio","Biography","textarea"]] },
     { id: "inquiry", label: "Tree + Claims", title: "Tree of Inquiry", custom: "claims" },
     { id: "exhibits", label: "Exhibits", title: "Exhibits page", custom: "exhibits" },
     { id: "qa", label: "Q&A + Rules", title: "Q&A and rules", custom: "qa" },
