@@ -247,8 +247,8 @@
     map.append(labels);
     const svg = svgElement("svg", { class: "connection-map-lines", viewBox: "0 0 100 100", "aria-hidden": "true", preserveAspectRatio: "none" });
     const defs = svgElement("defs");
-    const marker = svgElement("marker", { id: "admin-claim-arrow", viewBox: "0 0 10 10", refX: "8", refY: "5", markerWidth: "5", markerHeight: "5", orient: "auto-start-reverse" });
-    marker.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z" }));
+    const marker = svgElement("marker", { id: "admin-claim-arrow", viewBox: "0 0 12 12", refX: "11", refY: "6", markerWidth: "3.2", markerHeight: "3.2", markerUnits: "userSpaceOnUse", orient: "auto" });
+    marker.append(svgElement("path", { d: "M 0 0 L 12 6 L 0 12 z" }));
     defs.append(marker);
     svg.append(defs);
 
@@ -257,7 +257,11 @@
       const from = positions.get(connection.from);
       const to = positions.get(connection.to);
       if (!from || !to) return;
-      svg.append(svgElement("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, "marker-end": "url(#admin-claim-arrow)", "stroke-width": connection.thickness, "stroke-linecap": "round", "data-connection-index": index }));
+      const target = state.document.claims.find((claim) => claim.id === connection.to);
+      const end = connectionEnd(from, to, target?.level || "Focused");
+      const strokeWidth = connectionStrokeWidth(connection.thickness);
+      svg.append(svgElement("line", { class: "connection-line-halo", x1: from.x, y1: from.y, x2: end.x, y2: end.y, "stroke-width": strokeWidth + 4, "stroke-linecap": "round", "data-connection-halo-index": index }));
+      svg.append(svgElement("line", { class: "connection-line", x1: from.x, y1: from.y, x2: end.x, y2: end.y, "marker-end": "url(#admin-claim-arrow)", "stroke-width": strokeWidth, "stroke-linecap": "round", "data-connection-index": index }));
     });
     map.append(svg);
 
@@ -290,7 +294,9 @@
         widthInput.addEventListener("input", () => {
           connection.thickness = Number(widthInput.value);
           widthOutput.textContent = thicknessLabel(connection.thickness);
-          svg.querySelector(`[data-connection-index="${index}"]`)?.setAttribute("stroke-width", String(connection.thickness));
+          const strokeWidth = connectionStrokeWidth(connection.thickness);
+          svg.querySelector(`[data-connection-index="${index}"]`)?.setAttribute("stroke-width", String(strokeWidth));
+          svg.querySelector(`[data-connection-halo-index="${index}"]`)?.setAttribute("stroke-width", String(strokeWidth + 4));
           markDirty();
         });
         widthLabel.append(widthInput, widthOutput);
@@ -341,10 +347,30 @@
     return positions;
   }
 
+  function connectionStrokeWidth(value) {
+    const level = Math.min(5, Math.max(1, Math.round(value || 3)));
+    return [0, 2, 3.75, 5.75, 8, 10.5][level];
+  }
+
+  function connectionEnd(from, to, targetLevel) {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const distance = Math.hypot(dx, dy);
+    if (!distance) return to;
+    const unitX = dx / distance;
+    const unitY = dy / distance;
+    const halfWidth = targetLevel === "Central" ? 10.5 : 10;
+    const halfHeight = targetLevel === "Central" ? 9 : 7;
+    const horizontal = Math.abs(unitX) < 0.0001 ? Number.POSITIVE_INFINITY : halfWidth / Math.abs(unitX);
+    const vertical = Math.abs(unitY) < 0.0001 ? Number.POSITIVE_INFINITY : halfHeight / Math.abs(unitY);
+    const offset = Math.min(horizontal, vertical) + 1.5;
+    return { x: to.x - unitX * offset, y: to.y - unitY * offset };
+  }
+
   function thicknessLabel(value) {
-    if (value <= 1) return "Thin · 1 px";
-    if (value >= 5) return "Thick · 5 px";
-    return `${value < 3 ? "Light" : value > 3 ? "Bold" : "Medium"} · ${value} px`;
+    if (value <= 1) return "Thin · level 1";
+    if (value >= 5) return "Thick · level 5";
+    return `${value < 3 ? "Light" : value > 3 ? "Bold" : "Medium"} · level ${value}`;
   }
 
   function renderQa(container) {
