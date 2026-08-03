@@ -20,6 +20,7 @@
     { id: "who", label: "Who We Are", title: "Who We Are page", fields: [["eyebrow","Small heading","input"],["title","Page title","textarea"],["lede","Introduction","textarea"],["monogram","Profile initials","input"],["name","Name","input"],["role","Role and credentials","input"],["bio","Biography","textarea"]] },
     { id: "inquiry", label: "Tree + Claims", title: "Tree of Inquiry", custom: "claims" },
     { id: "exhibits", label: "Exhibits", title: "Exhibits page", custom: "exhibits" },
+    { id: "comments", label: "Comments", title: "Comment moderation", custom: "comments" },
     { id: "qa", label: "Q&A + Rules", title: "Q&A and rules", custom: "qa" },
     { id: "contact", label: "Contact", title: "Contact page", fields: [["eyebrow","Small heading","input"],["title","Page title","textarea"],["lede","Introduction","textarea"],["respondTitle","Respond option title","input"],["respondText","Respond option description","textarea"],["proposeTitle","Propose option title","input"],["proposeText","Propose option description","textarea"],["privacyTitle","Privacy warning title","input"],["privacyText","Privacy warning","textarea"]] },
     { id: "site", label: "Site Footer", title: "Site-wide writing", fields: [["brandName","Site name","input"],["footerLeft","Footer left","input"],["footerRight","Footer right","input"]] },
@@ -123,9 +124,13 @@
     app.querySelectorAll("#page-picker button").forEach((button) => button.classList.toggle("active", button.dataset.page === state.page));
     const form = app.querySelector("#content-form");
     form.replaceChildren();
+    const editingContent = definition.custom !== "comments";
+    app.querySelector("#save-button").hidden = !editingContent;
+    app.querySelector("#publish-button").hidden = !editingContent;
     if (definition.custom === "claims") renderClaims(form);
     else if (definition.custom === "qa") renderQa(form);
     else if (definition.custom === "exhibits") renderExhibits(form);
+    else if (definition.custom === "comments") renderComments(form);
     else renderFields(form, state.document[definition.id], definition.fields);
     updateVersions();
   }
@@ -385,6 +390,69 @@
     const add = element("button", { class: "secondary-button", type: "button" }, "Add exhibit");
     add.addEventListener("click", () => { const no = String(Math.max(0, ...state.document.exhibits.items.map((item) => Number(item.no) || 0)) + 1); state.document.exhibits.items.push({ no, title: "New exhibit", description: "Describe the exhibit and its relevance.", href: "" }); markDirty(); renderSection(); });
     container.append(add);
+  }
+
+  function renderComments(container) {
+    const section = element("section", { class: "editor-section moderation-section" });
+    section.append(
+      element("h3", {}, "Public exhibit discussions"),
+      element("p", { class: "field-note" }, "Comments appear immediately after they are posted. Hide comments that reveal private information, target people, or violate the discussion rules. Hidden comments can be restored."),
+    );
+    const list = element("div", { class: "moderation-list" });
+    list.append(element("p", { class: "field-note" }, "Loading comments…"));
+    section.append(list);
+    container.append(section);
+
+    api("admin/comments", { method: "GET", headers: {} }).then((payload) => {
+      if (state.page !== "comments" || !list.isConnected) return;
+      list.replaceChildren();
+      const comments = Array.isArray(payload.comments) ? payload.comments : [];
+      if (!comments.length) {
+        list.append(element("p", { class: "moderation-empty" }, "No comments have been posted yet."));
+        return;
+      }
+
+      comments.forEach((comment) => {
+        const card = element("article", { class: `moderation-card${comment.status === "hidden" ? " hidden-comment" : ""}` });
+        const header = element("header");
+        const identity = element("div");
+        identity.append(
+          element("b", {}, comment.authorName),
+          element("span", {}, `Exhibit #${comment.exhibitNo}${comment.parentId ? " · Reply" : " · Top-level comment"}`),
+        );
+        const status = element("span", { class: `moderation-status ${comment.status}` }, comment.status === "hidden" ? "Hidden" : "Visible");
+        header.append(identity, status);
+        card.append(
+          header,
+          element("p", { class: "moderation-body" }, comment.body),
+          element("time", {}, new Date(comment.createdAt * 1000).toLocaleString()),
+        );
+        const action = element("button", { class: comment.status === "hidden" ? "secondary-button" : "danger-button", type: "button" }, comment.status === "hidden" ? "Restore comment" : "Hide comment");
+        action.addEventListener("click", async () => {
+          const nextStatus = comment.status === "hidden" ? "visible" : "hidden";
+          action.disabled = true;
+          setNotice(`${nextStatus === "hidden" ? "Hiding" : "Restoring"} comment…`);
+          try {
+            const result = await api("admin/comments/moderate", {
+              method: "POST",
+              headers: { "x-allegory-csrf": state.csrfToken },
+              body: JSON.stringify({ commentId: comment.id, status: nextStatus }),
+            });
+            state.csrfToken = result.csrfToken;
+            setNotice(`Comment ${nextStatus === "hidden" ? "hidden" : "restored"}. The public discussion is updated immediately.`);
+            renderSection();
+          } catch (error) {
+            action.disabled = false;
+            setNotice(error.message, true);
+          }
+        });
+        card.append(action);
+        list.append(card);
+      });
+    }).catch((error) => {
+      if (!list.isConnected) return;
+      list.replaceChildren(element("p", { class: "moderation-empty error" }, error.message));
+    });
   }
 
   function field(labelText, value, kind, onChange) {
