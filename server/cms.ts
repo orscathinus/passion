@@ -20,12 +20,26 @@ type DocumentRow = {
   published_version: number;
 };
 
+type CommentRow = {
+  author_name: string;
+  body: string;
+  created_at: number;
+  exhibit_no: string;
+  id: string;
+  parent_id: string | null;
+  status: "hidden" | "visible";
+};
+
 const COOKIE_NAME = "__Host-allegory_admin";
 const SESSION_SECONDS = 60 * 60;
 const LOGIN_WINDOW_SECONDS = 15 * 60;
 const MAX_LOGIN_FAILURES = 5;
 const PASSWORD_ITERATIONS = 180_000;
 const MAX_BODY_BYTES = 900_000;
+const COMMENT_RATE_WINDOW_SECONDS = 10 * 60;
+const COMMENT_RATE_MAXIMUM = 5;
+const COMMENT_MINIMUM_INTERVAL_SECONDS = 8;
+const COMMENT_MAXIMUM_REPLY_DEPTH = 3;
 const PUBLIC_ORIGINS = new Set([
   "https://orscathinus.github.io",
   "https://passion-4mg.pages.dev",
@@ -42,6 +56,16 @@ export async function handleCmsRequest(request: Request, env: CmsEnv): Promise<R
       return publicDocument(request, env.DB);
     }
 
+    if (url.pathname === "/api/cms/comments" && request.method === "OPTIONS") {
+      return commentCorsPreflight(request);
+    }
+    if (url.pathname === "/api/cms/comments" && request.method === "GET") {
+      return publicComments(request, env.DB);
+    }
+    if (url.pathname === "/api/cms/comments" && request.method === "POST") {
+      return createPublicComment(request, env.DB);
+    }
+
     if (!url.pathname.startsWith("/api/cms/admin/")) {
       return json({ error: "Not found." }, 404);
     }
@@ -51,6 +75,12 @@ export async function handleCmsRequest(request: Request, env: CmsEnv): Promise<R
 
     if (url.pathname === "/api/cms/admin/state" && request.method === "GET") {
       return adminState(request, env.DB, identity);
+    }
+    if (url.pathname === "/api/cms/admin/comments" && request.method === "GET") {
+      return adminComments(env.DB);
+    }
+    if (url.pathname === "/api/cms/admin/comments/moderate" && request.method === "POST") {
+      return moderateComment(request, env.DB, identity);
     }
     if (url.pathname === "/api/cms/admin/setup-password" && request.method === "POST") {
       return setupPassword(request, env.DB, identity);
@@ -72,7 +102,8 @@ export async function handleCmsRequest(request: Request, env: CmsEnv): Promise<R
   } catch (error) {
     const message = error instanceof CmsValidationError ? error.message : "The editor service could not complete that request.";
     const status = error instanceof CmsValidationError ? 400 : 500;
-    return json({ error: message }, status);
+    const response = json({ error: message }, status);
+    return url.pathname === "/api/cms/comments" ? applyPublicCors(request, response) : response;
   }
 }
 
@@ -105,6 +136,10 @@ async function ensureDatabase(db: D1Database) {
     db.prepare("CREATE INDEX IF NOT EXISTS login_attempts_subject_idx ON login_attempts (subject_hash, created_at)"),
     db.prepare("CREATE TABLE IF NOT EXISTS audit_log (id INTEGER PRIMARY KEY AUTOINCREMENT, actor_email TEXT NOT NULL, action TEXT NOT NULL, details TEXT NOT NULL, created_at INTEGER NOT NULL)"),
     db.prepare("CREATE INDEX IF NOT EXISTS audit_log_created_idx ON audit_log (created_at)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS exhibit_comments (id TEXT PRIMARY KEY, exhibit_no TEXT NOT NULL, parent_id TEXT, author_name TEXT NOT NULL, body TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'visible', ip_hash TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS exhibit_comments_exhibit_idx ON exhibit_comments (exhibit_no, status, created_at)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS exhibit_comments_parent_idx ON exhibit_comments (parent_id)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS exhibit_comments_ip_idx ON exhibit_comments (ip_hash, created_at)"),
   ]);
 
   const defaults = JSON.stringify(defaultCmsDocument);
@@ -126,6 +161,157 @@ async function publicDocument(request: Request, db: D1Database) {
   }
   response.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
   return response;
+}
+
+async function publicComments(request: Request, db: D1Database) {
+  const exhibitNo = commentText(new URL(request.url).searchParams.get("exhibit"), "Exhibit number", 1, 20, true);
+  const results = await db.prepare("SELECT id, exhibit_no, parent_id, author_name, body, status, created_at FROM exhibit_comments WHERE exhibit_no = ? AND status = 'visible' ORDER BY created_at ASC, id ASC LIMIT 500")
+    .bind(exhibitNo).all<CommentRow>();
+  const comments = (results.results ?? []).map(publicComment);
+  return applyPublicCors(request, json({ comments }, 200, { "Cache-Control": "no-store" }));
+}
+
+async function createPublicComment(request: Request, db: D1Database) {
+  requirePublicWriteOrigin(request);
+  const body = await readBody<{ authorName?: unknown; body?: unknown; exhibitNo?: unknown; parentId?: unknown; website?: unknown }>(request);
+
+  if (typeof body.website === "string" && body.website.trim()) {
+    return applyPublicCors(request, json({ ok: true }, 201));
+  }
+
+  const exhibitNo = commentText(body.exhibitNo, "Exhibit number", 1, 20, true);
+  const authorName = commentText(body.authorName, "Display name", 2, 60, true);
+  const commentBody = commentText(body.body, "Comment", 3, 2_000, false);
+  const parentId = body.parentId === null || body.parentId === undefined || body.parentId === ""
+    ? null
+    : commentText(body.parentId, "Reply target", 1, 80, true);
+
+  const document = await documentRow(db);
+  if (!safeStoredDocument(document.published_json).exhibits.items.some((exhibit) => exhibit.no === exhibitNo)) {
+    throw new CmsValidationError("That exhibit is no longer available for discussion.");
+  }
+
+  if (parentId) await validateReplyTarget(db, parentId, exhibitNo);
+
+  const visitorAddress = request.headers.get("cf-connecting-ip") ?? "unknown";
+  const visitorAgent = (request.headers.get("user-agent") ?? "unknown").slice(0, 200);
+  const ipHash = await sha256(`exhibit-comment|${visitorAddress}|${visitorAgent}`);
+  const timestamp = now();
+  const recent = await db.prepare("SELECT COUNT(*) AS count, MAX(created_at) AS latest FROM exhibit_comments WHERE ip_hash = ? AND created_at > ?")
+    .bind(ipHash, timestamp - COMMENT_RATE_WINDOW_SECONDS).first<{ count: number; latest: number | null }>();
+
+  if ((recent?.latest ?? 0) > timestamp - COMMENT_MINIMUM_INTERVAL_SECONDS) {
+    return applyPublicCors(request, json({ error: "Please wait a few seconds before posting again." }, 429, { "Retry-After": String(COMMENT_MINIMUM_INTERVAL_SECONDS) }));
+  }
+  if ((recent?.count ?? 0) >= COMMENT_RATE_MAXIMUM) {
+    return applyPublicCors(request, json({ error: "You have posted several comments recently. Please try again in about ten minutes." }, 429, { "Retry-After": String(COMMENT_RATE_WINDOW_SECONDS) }));
+  }
+
+  const comment: CommentRow = {
+    id: crypto.randomUUID(),
+    exhibit_no: exhibitNo,
+    parent_id: parentId,
+    author_name: authorName,
+    body: commentBody,
+    status: "visible",
+    created_at: timestamp,
+  };
+  await db.prepare("INSERT INTO exhibit_comments (id, exhibit_no, parent_id, author_name, body, status, ip_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'visible', ?, ?, ?)")
+    .bind(comment.id, comment.exhibit_no, comment.parent_id, comment.author_name, comment.body, ipHash, timestamp, timestamp).run();
+
+  return applyPublicCors(request, json({ comment: publicComment(comment) }, 201));
+}
+
+async function validateReplyTarget(db: D1Database, parentId: string, exhibitNo: string) {
+  let cursor: string | null = parentId;
+  let depth = 0;
+
+  while (cursor) {
+    depth += 1;
+    if (depth > COMMENT_MAXIMUM_REPLY_DEPTH) {
+      throw new CmsValidationError("This reply thread has reached its maximum depth. Reply to an earlier comment instead.");
+    }
+    const parent: { exhibit_no: string; parent_id: string | null; status: string } | null = await db.prepare("SELECT exhibit_no, parent_id, status FROM exhibit_comments WHERE id = ?")
+      .bind(cursor).first<{ exhibit_no: string; parent_id: string | null; status: string }>();
+    if (!parent || parent.exhibit_no !== exhibitNo || parent.status !== "visible") {
+      throw new CmsValidationError("The comment you are replying to is no longer available.");
+    }
+    cursor = parent.parent_id;
+  }
+}
+
+function publicComment(comment: CommentRow) {
+  return {
+    id: comment.id,
+    exhibitNo: comment.exhibit_no,
+    parentId: comment.parent_id,
+    authorName: comment.author_name,
+    body: comment.body,
+    createdAt: comment.created_at,
+  };
+}
+
+function commentCorsPreflight(request: Request) {
+  requirePublicWriteOrigin(request);
+  return applyPublicCors(request, new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Max-Age": "86400",
+    },
+  }));
+}
+
+function applyPublicCors(request: Request, response: Response) {
+  const origin = request.headers.get("Origin");
+  if (origin && isPublicOrigin(request, origin)) {
+    response.headers.set("Access-Control-Allow-Origin", origin);
+    response.headers.set("Vary", "Origin");
+  }
+  response.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+  return response;
+}
+
+function requirePublicWriteOrigin(request: Request) {
+  const origin = request.headers.get("Origin");
+  if (!origin || !isPublicOrigin(request, origin)) {
+    throw new CmsValidationError("This comment did not come from an approved AllegoryNow website.");
+  }
+}
+
+function isPublicOrigin(request: Request, origin: string) {
+  return origin === new URL(request.url).origin || PUBLIC_ORIGINS.has(origin);
+}
+
+function commentText(value: unknown, label: string, minimum: number, maximum: number, singleLine: boolean) {
+  if (typeof value !== "string") throw new CmsValidationError(`${label} must be text.`);
+  const withoutControls = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+  const normalized = (singleLine ? withoutControls.replace(/\s+/g, " ") : withoutControls.replace(/\r\n/g, "\n")).trim();
+  if (normalized.length < minimum) throw new CmsValidationError(`${label} is too short.`);
+  if (normalized.length > maximum) throw new CmsValidationError(`${label} is too long.`);
+  return normalized;
+}
+
+async function adminComments(db: D1Database) {
+  const results = await db.prepare("SELECT id, exhibit_no, parent_id, author_name, body, status, created_at FROM exhibit_comments ORDER BY created_at DESC, id DESC LIMIT 500")
+    .all<CommentRow>();
+  return json({ comments: (results.results ?? []).map((comment) => ({ ...publicComment(comment), status: comment.status })) });
+}
+
+async function moderateComment(request: Request, db: D1Database, email: string) {
+  requireSameOrigin(request);
+  const session = await requireSessionAndCsrf(request, db, email);
+  if (session instanceof Response) return session;
+  const body = await readBody<{ commentId?: unknown; status?: unknown }>(request);
+  const commentId = commentText(body.commentId, "Comment ID", 1, 80, true);
+  const status = body.status === "visible" || body.status === "hidden" ? body.status : null;
+  if (!status) throw new CmsValidationError("Choose whether the comment should be visible or hidden.");
+  const updated = await db.prepare("UPDATE exhibit_comments SET status = ?, updated_at = ? WHERE id = ?")
+    .bind(status, now(), commentId).run();
+  if (!updated.meta.changes) return json({ error: "That comment could not be found." }, 404);
+  await audit(db, email, "moderate_comment", `${status} comment ${commentId}`);
+  return json({ ok: true, csrfToken: session.csrf_token });
 }
 
 function requireAdminIdentity(request: Request, env: CmsEnv): string | Response {
