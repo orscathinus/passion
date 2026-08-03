@@ -378,12 +378,12 @@
     state.document.exhibits.items.forEach((item, index) => {
       const card = element("div", { class: "repeater-card" });
       card.append(cardHeader(`Exhibit #${item.no}`, () => { state.document.exhibits.items.splice(index,1); markDirty(); renderSection(); }));
-      renderFields(card, item, [["no","Exhibit number","input"],["title","Title","textarea"],["description","Description","textarea"],["source","Source or creator","input"],["date","Date","input"],["relatedClaims","Related claim numbers","input"],["href","File or source link","input"]]);
+      renderFields(card, item, [["no","Exhibit number","input"],["title","Title","textarea"],["description","Description","textarea"],["href","File or source link","input"]]);
       list.append(card);
     });
     container.append(list);
     const add = element("button", { class: "secondary-button", type: "button" }, "Add exhibit");
-    add.addEventListener("click", () => { const no = String(Math.max(0, ...state.document.exhibits.items.map((item) => Number(item.no) || 0)) + 1); state.document.exhibits.items.push({ no, title: "New exhibit", description: "Describe the exhibit and its relevance.", source: "", date: "", relatedClaims: "", href: "" }); markDirty(); renderSection(); });
+    add.addEventListener("click", () => { const no = String(Math.max(0, ...state.document.exhibits.items.map((item) => Number(item.no) || 0)) + 1); state.document.exhibits.items.push({ no, title: "New exhibit", description: "Describe the exhibit and its relevance.", href: "" }); markDirty(); renderSection(); });
     container.append(add);
   }
 
