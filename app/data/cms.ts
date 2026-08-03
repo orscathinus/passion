@@ -15,6 +15,11 @@ export type Exhibit = {
   title: string;
 };
 
+export type ClaimConnection = {
+  from: string;
+  to: string;
+};
+
 export type CmsDocument = {
   schemaVersion: 1;
   site: {
@@ -60,6 +65,7 @@ export type CmsDocument = {
   };
   supports: Support[];
   claims: InquiryClaim[];
+  connections: ClaimConnection[];
   exhibits: {
     eyebrow: string;
     items: Exhibit[];
@@ -134,6 +140,7 @@ export const defaultCmsDocument: CmsDocument = {
     evidence: claim.evidence.map((item) => ({ ...item })),
     supportIds: [...claim.supportIds],
   })),
+  connections: [],
   exhibits: {
     eyebrow: "Exhibits + evidence",
     title: "Family Court exhibits.",
