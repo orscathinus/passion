@@ -7,7 +7,7 @@ const CmsContext = createContext<CmsDocument>(defaultCmsDocument);
 const configuredApi = process.env.NEXT_PUBLIC_CMS_API;
 
 export function CmsProvider({ children }: { children: ReactNode }) {
-  const [document, setDocument] = useState(defaultCmsDocument);
+  const [document, setDocument] = useState<CmsDocument | null>(null);
 
   useEffect(() => {
     const endpoint = configuredApi
@@ -15,22 +15,30 @@ export function CmsProvider({ children }: { children: ReactNode }) {
       : "/api/cms/public";
     const controller = new AbortController();
 
-    const loadPublishedDocument = () => {
-      fetch(endpoint, {
+    let initialRequest = true;
+    const loadPublishedDocument = async () => {
+      try {
+        const response = await fetch(endpoint, {
         signal: controller.signal,
         credentials: "omit",
         cache: "no-store",
-      })
-        .then((response) => response.ok ? response.json() : Promise.reject(new Error("CMS unavailable")))
-        .then((payload: unknown) => {
-          const candidate = payload && typeof payload === "object" && "document" in payload
-            ? (payload as { document?: CmsDocument }).document
-            : undefined;
-          if (candidate?.schemaVersion === 1) setDocument(candidate);
-        })
-        .catch(() => {
-          // The checked-in content remains the reliable fallback for static builds.
         });
+        if (!response.ok) throw new Error("CMS unavailable");
+        const payload: unknown = await response.json();
+        const candidate = payload && typeof payload === "object" && "document" in payload
+          ? (payload as { document?: CmsDocument }).document
+          : undefined;
+        if (candidate?.schemaVersion !== 1) throw new Error("CMS response is invalid");
+        setDocument(candidate);
+      } catch (error) {
+        if (initialRequest && !(error instanceof DOMException && error.name === "AbortError")) {
+          // A neutral loading state is shown first; checked-in content is used only
+          // if the live CMS cannot be reached, so stale writing never flashes.
+          setDocument(defaultCmsDocument);
+        }
+      } finally {
+        initialRequest = false;
+      }
     };
 
     loadPublishedDocument();
@@ -41,6 +49,15 @@ export function CmsProvider({ children }: { children: ReactNode }) {
       controller.abort();
     };
   }, []);
+
+  if (!document) {
+    return (
+      <div className="cms-loading" role="status" aria-live="polite">
+        <span aria-hidden="true">A</span>
+        <p>Loading the latest published version…</p>
+      </div>
+    );
+  }
 
   return <CmsContext.Provider value={document}>{children}</CmsContext.Provider>;
 }

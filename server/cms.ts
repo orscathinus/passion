@@ -332,6 +332,22 @@ function normalizeDocument(value: unknown): CmsDocument {
     };
   });
   unique(claims.map((claim) => claim.id), "claim IDs");
+  const knownClaims = new Set(claims.map((claim) => claim.id));
+  const connectionsInput = value.connections ?? [];
+  if (!Array.isArray(connectionsInput) || connectionsInput.length > 500) {
+    throw new CmsValidationError("Claim connections must be a list of no more than 500 entries.");
+  }
+  const connections = connectionsInput.map((item, index) => {
+    if (!isRecord(item)) throw new CmsValidationError(`Claim connection ${index + 1} is invalid.`);
+    const from = text(item.from, `claim connection ${index + 1} starting claim`, 12);
+    const to = text(item.to, `claim connection ${index + 1} destination claim`, 12);
+    if (!knownClaims.has(from) || !knownClaims.has(to)) {
+      throw new CmsValidationError(`Claim connection ${index + 1} refers to a missing claim.`);
+    }
+    if (from === to) throw new CmsValidationError(`Claim ${from} cannot connect to itself.`);
+    return { from, to };
+  });
+  unique(connections.map((connection) => `${connection.from}->${connection.to}`), "claim connections");
   const knownSupports = new Set(supports.map((support) => support.id));
   for (const claim of claims) {
     const missing = claim.supportIds.find((supportId) => !knownSupports.has(supportId));
@@ -373,6 +389,7 @@ function normalizeDocument(value: unknown): CmsDocument {
     inquiry: section("inquiry", defaultCmsDocument.inquiry),
     supports,
     claims,
+    connections,
     exhibits,
     qa,
     contact: section("contact", defaultCmsDocument.contact),

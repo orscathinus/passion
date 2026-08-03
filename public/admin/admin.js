@@ -3,7 +3,8 @@
 
   const SITE_ADMIN_URL = "https://allegorynow.thirtytwo32percent.chatgpt.site/admin/index.html";
   const SITE_ADMIN_HOST = new URL(SITE_ADMIN_URL).hostname;
-  if (location.hostname !== SITE_ADMIN_HOST) {
+  const LOCAL_PREVIEW_HOSTS = new Set(["terminal.local", "localhost"]);
+  if (location.hostname !== SITE_ADMIN_HOST && !LOCAL_PREVIEW_HOSTS.has(location.hostname)) {
     location.replace(SITE_ADMIN_URL);
     return;
   }
@@ -11,7 +12,7 @@
   const app = document.querySelector("#app");
   const sessionActions = document.querySelector("#session-actions");
   const logoutButton = document.querySelector("#logout-button");
-  const state = { document: null, csrfToken: "", draftVersion: 0, publishedVersion: 0, page: "home", dirty: false, selectedClaim: "1" };
+  const state = { document: null, csrfToken: "", draftVersion: 0, publishedVersion: 0, page: "home", dirty: false, selectedClaim: "1", connectionStart: "" };
 
   const sections = [
     { id: "home", label: "Home", title: "Home page", fields: [["headline","Main headline","textarea"],["goalLabel","Path goal label","input"],["primaryButton","Primary button","input"],["secondaryButton","Secondary button","input"]] },
@@ -85,6 +86,7 @@
   }
 
   function openEditor(payload) {
+    if (!Array.isArray(payload.document.connections)) payload.document.connections = [];
     Object.assign(state, {
       document: payload.document,
       csrfToken: payload.csrfToken,
@@ -175,13 +177,24 @@
     layout.append(list, renderClaimEditor());
     claimsSection.append(layout);
     container.append(claimsSection);
+    renderConnections(container);
   }
 
   function renderClaimEditor() {
     const claim = state.document.claims.find((item) => item.id === state.selectedClaim);
     const editor = element("div", { class: "claim-editor" });
     if (!claim) return editor;
-    editor.append(field("Claim number", claim.id, "input", (value) => { claim.id = value; state.selectedClaim = value; markDirty(); }));
+    editor.append(field("Claim number", claim.id, "input", (value) => {
+      const previousId = claim.id;
+      claim.id = value;
+      state.selectedClaim = value;
+      state.document.connections.forEach((connection) => {
+        if (connection.from === previousId) connection.from = value;
+        if (connection.to === previousId) connection.to = value;
+      });
+      if (state.connectionStart === previousId) state.connectionStart = value;
+      markDirty();
+    }));
     const levelLabel = element("label", {}, "Claim level");
     const select = element("select");
     ["Central","Broader","Focused","Specific"].forEach((value) => select.append(element("option", { value, selected: claim.level === value ? "selected" : null }, value)));
@@ -194,9 +207,107 @@
     editor.append(field("Evidence (one per line: Label | URL)", claim.evidence.map((item) => `${item.label} | ${item.href}`).join("\n"), "textarea", (value) => { claim.evidence = value.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => { const divider = line.indexOf("|"); return divider < 0 ? { label: line, href: "" } : { label: line.slice(0,divider).trim(), href: line.slice(divider + 1).trim() }; }); markDirty(); }));
     const remove = element("button", { class: "danger-button", type: "button" }, "Archive this claim from the draft");
     remove.disabled = claim.level === "Central";
-    remove.addEventListener("click", () => { if (confirm(`Remove claim #${claim.id} from the draft? Its published version remains live until you publish.`)) { state.document.claims = state.document.claims.filter((item) => item !== claim); state.selectedClaim = state.document.claims[0]?.id || ""; markDirty(); renderSection(); } });
+    remove.addEventListener("click", () => { if (confirm(`Remove claim #${claim.id} from the draft? Its published version remains live until you publish.`)) { state.document.claims = state.document.claims.filter((item) => item !== claim); state.document.connections = state.document.connections.filter((connection) => connection.from !== claim.id && connection.to !== claim.id); state.selectedClaim = state.document.claims[0]?.id || ""; if (state.connectionStart === claim.id) state.connectionStart = ""; markDirty(); renderSection(); } });
     editor.append(remove);
     return editor;
+  }
+
+  function renderConnections(container) {
+    const section = element("section", { class: "editor-section connection-section" });
+    section.append(
+      element("h3", {}, "Lines between claims"),
+      element("p", { class: "field-note" }, state.connectionStart
+        ? `Claim #${state.connectionStart} selected. Now click the claim it supports.`
+        : "Click the supporting claim first, then click the claim it supports. An arrow will be drawn in that direction."),
+    );
+
+    const scroll = element("div", { class: "connection-map-scroll" });
+    const map = element("div", { class: "connection-map" });
+    const labels = element("div", { class: "connection-level-labels", "aria-hidden": "true" });
+    ["Specific claims", "Focused claims", "Broader claims", "Central claim"].forEach((label) => labels.append(element("span", {}, label)));
+    map.append(labels);
+    const svg = svgElement("svg", { class: "connection-map-lines", viewBox: "0 0 100 100", "aria-hidden": "true", preserveAspectRatio: "none" });
+    const defs = svgElement("defs");
+    const marker = svgElement("marker", { id: "admin-claim-arrow", viewBox: "0 0 10 10", refX: "8", refY: "5", markerWidth: "5", markerHeight: "5", orient: "auto-start-reverse" });
+    marker.append(svgElement("path", { d: "M 0 0 L 10 5 L 0 10 z" }));
+    defs.append(marker);
+    svg.append(defs);
+
+    const positions = connectionPositions();
+    state.document.connections.forEach((connection) => {
+      const from = positions.get(connection.from);
+      const to = positions.get(connection.to);
+      if (!from || !to) return;
+      svg.append(svgElement("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, "marker-end": "url(#admin-claim-arrow)" }));
+    });
+    map.append(svg);
+
+    [...state.document.claims].sort((a, b) => Number(a.id) - Number(b.id)).forEach((claim) => {
+      const position = positions.get(claim.id);
+      if (!position) return;
+      const button = element("button", { type: "button", class: `connection-node level-${claim.level.toLowerCase()}${state.connectionStart === claim.id ? " selected" : ""}`, "aria-pressed": state.connectionStart === claim.id ? "true" : "false" });
+      button.style.left = `${position.x}%`;
+      button.style.top = `${position.y}%`;
+      button.append(element("b", {}, `#${claim.id} · ${claim.level}`), element("span", {}, claim.title));
+      button.addEventListener("click", () => selectConnectionClaim(claim.id));
+      map.append(button);
+    });
+    scroll.append(map);
+    section.append(scroll);
+
+    const list = element("div", { class: "connection-list" });
+    if (!state.document.connections.length) {
+      list.append(element("p", { class: "field-note" }, "No lines have been added yet."));
+    } else {
+      state.document.connections.forEach((connection, index) => {
+        const from = state.document.claims.find((claim) => claim.id === connection.from);
+        const to = state.document.claims.find((claim) => claim.id === connection.to);
+        const row = element("div", { class: "connection-row" });
+        row.append(element("span", {}, `#${connection.from} ${from?.title || "Unknown claim"} → #${connection.to} ${to?.title || "Unknown claim"}`));
+        const remove = element("button", { class: "small-button", type: "button" }, "Remove line");
+        remove.addEventListener("click", () => { state.document.connections.splice(index, 1); markDirty(); renderSection(); });
+        row.append(remove);
+        list.append(row);
+      });
+    }
+    section.append(list);
+    container.append(section);
+  }
+
+  function selectConnectionClaim(id) {
+    if (!state.connectionStart) {
+      state.connectionStart = id;
+      renderSection();
+      setNotice(`Claim #${id} selected as the supporting claim.`);
+      return;
+    }
+    if (state.connectionStart === id) {
+      state.connectionStart = "";
+      renderSection();
+      setNotice("Connection selection cleared.");
+      return;
+    }
+    const from = state.connectionStart;
+    state.connectionStart = "";
+    if (state.document.connections.some((connection) => connection.from === from && connection.to === id)) {
+      renderSection();
+      setNotice(`The line from claim #${from} to claim #${id} already exists.`, true);
+      return;
+    }
+    state.document.connections.push({ from, to: id });
+    markDirty();
+    renderSection();
+    setNotice(`Line added: claim #${from} supports claim #${id}. Save the draft when ready.`);
+  }
+
+  function connectionPositions() {
+    const positions = new Map();
+    const levelX = { Specific: 12, Focused: 38, Broader: 65, Central: 88 };
+    Object.keys(levelX).forEach((level) => {
+      const claims = state.document.claims.filter((claim) => claim.level === level).sort((a, b) => Number(a.id) - Number(b.id));
+      claims.forEach((claim, index) => positions.set(claim.id, { x: levelX[level], y: ((index + 1) / (claims.length + 1)) * 100 }));
+    });
+    return positions;
   }
 
   function renderQa(container) {
@@ -320,6 +431,12 @@
       else node.setAttribute(key, value);
     });
     if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function svgElement(tag, attributes = {}) {
+    const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, value));
     return node;
   }
 
