@@ -2,7 +2,8 @@
   "use strict";
 
   const SITE_ADMIN_URL = "https://allegorynow.thirtytwo32percent.chatgpt.site/admin/index.html";
-  if (location.hostname.endsWith("github.io")) {
+  const SITE_ADMIN_HOST = new URL(SITE_ADMIN_URL).hostname;
+  if (location.hostname !== SITE_ADMIN_HOST) {
     location.replace(SITE_ADMIN_URL);
     return;
   }
@@ -40,6 +41,7 @@
   }
 
   async function initialize() {
+    sessionActions.hidden = true;
     try {
       const payload = await api("admin/state", { method: "GET", headers: {} });
       if (payload.authenticated) return openEditor(payload);
@@ -322,6 +324,7 @@
   }
 
   function renderFatal(message) {
+    sessionActions.hidden = true;
     const card = element("section", { class: "auth-card" });
     card.append(element("p", { class: "kicker" }, "Administrator area unavailable"), element("h1", {}, "The editor could not open."), element("p", {}, message));
     app.replaceChildren(card);
