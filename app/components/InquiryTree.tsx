@@ -14,6 +14,35 @@ function normalizeNumber(value: string) {
   return /^\d+$/.test(cleaned) ? String(Number(cleaned)) : "";
 }
 
+function connectionStrokeWidth(thickness: number) {
+  const level = Math.min(5, Math.max(1, Math.round(thickness || 3)));
+  return [0, 2, 3.75, 5.75, 8, 10.5][level];
+}
+
+function connectionEnd(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  targetLevel: string,
+) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const distance = Math.hypot(dx, dy);
+  if (!distance) return to;
+
+  const unitX = dx / distance;
+  const unitY = dy / distance;
+  if (targetLevel === "Central") {
+    return { x: to.x - unitX * 13.7, y: to.y - unitY * 13.7 };
+  }
+
+  const halfWidth = targetLevel === "Broader" ? 9.6 : 8.2;
+  const halfHeight = targetLevel === "Broader" ? 5.5 : 5;
+  const horizontal = Math.abs(unitX) < 0.0001 ? Number.POSITIVE_INFINITY : halfWidth / Math.abs(unitX);
+  const vertical = Math.abs(unitY) < 0.0001 ? Number.POSITIVE_INFINITY : halfHeight / Math.abs(unitY);
+  const offset = Math.min(horizontal, vertical) + 1.35;
+  return { x: to.x - unitX * offset, y: to.y - unitY * offset };
+}
+
 export function InquiryTree() {
   const cms = useCmsDocument();
   const inquiryClaims = cms.claims;
@@ -51,16 +80,19 @@ export function InquiryTree() {
       )}
 
       <div className="tree-wrap concentric-tree-wrap">
-        <div className="tree-legend"><span><i className="specific-dot" /> Specific</span><span><i className="claim-dot" /> Focused</span><span><i className="conclusion-dot" /> Broader</span><span><i className="central-dot" /> Central</span></div>
+        <div className="tree-legend"><span><i className="specific-dot" /> Specific</span><span><i className="claim-dot" /> Focused</span><span><i className="conclusion-dot" /> Broader</span><span><i className="central-dot" /> Central</span><span className="tree-legend-direction"><b aria-hidden="true">→</b> Arrow points to supported claim</span></div>
         <div className="concentric-tree" aria-label="Concentric Tree of Inquiry with published connections between claims.">
           <svg className="concentric-lines" viewBox="0 0 100 100" aria-hidden="true">
-            <defs><marker id="claim-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs>
+            <defs><marker id="claim-arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="3" markerHeight="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M 0 0 L 12 6 L 0 12 z" /></marker></defs>
             <circle cx="50" cy="50" r="45" /><circle cx="50" cy="50" r="32" /><circle cx="50" cy="50" r="20" />
             {cms.connections.map((connection) => {
               const from = positions.get(connection.from);
               const to = positions.get(connection.to);
               if (!from || !to || !show(connection.from) || !show(connection.to)) return null;
-              return <line className="claim-connection-line" key={`${connection.from}-${connection.to}`} x1={from.x} y1={from.y} x2={to.x} y2={to.y} markerEnd="url(#claim-arrow)" strokeWidth={connection.thickness} strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
+              const target = inquiryClaims.find((claim) => claim.id === connection.to);
+              const end = connectionEnd(from, to, target?.level ?? "Focused");
+              const strokeWidth = connectionStrokeWidth(connection.thickness);
+              return <g key={`${connection.from}-${connection.to}`}><line className="claim-connection-halo" x1={from.x} y1={from.y} x2={end.x} y2={end.y} strokeWidth={strokeWidth + 4} strokeLinecap="round" vectorEffect="non-scaling-stroke" /><line className="claim-connection-line" x1={from.x} y1={from.y} x2={end.x} y2={end.y} markerEnd="url(#claim-arrow)" strokeWidth={strokeWidth} strokeLinecap="round" vectorEffect="non-scaling-stroke" /></g>;
             })}
           </svg>
           <span className="ring-label ring-label-outer">Specific claims</span><span className="ring-label ring-label-middle">Focused claims</span><span className="ring-label ring-label-inner">Broader claims</span>
