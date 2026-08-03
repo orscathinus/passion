@@ -15,19 +15,31 @@ export function CmsProvider({ children }: { children: ReactNode }) {
       : "/api/cms/public";
     const controller = new AbortController();
 
-    fetch(endpoint, { signal: controller.signal, credentials: "omit" })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("CMS unavailable")))
-      .then((payload: unknown) => {
-        const candidate = payload && typeof payload === "object" && "document" in payload
-          ? (payload as { document?: CmsDocument }).document
-          : undefined;
-        if (candidate?.schemaVersion === 1) setDocument(candidate);
+    const loadPublishedDocument = () => {
+      fetch(endpoint, {
+        signal: controller.signal,
+        credentials: "omit",
+        cache: "no-store",
       })
-      .catch(() => {
-        // The checked-in content remains the reliable fallback for static builds.
-      });
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error("CMS unavailable")))
+        .then((payload: unknown) => {
+          const candidate = payload && typeof payload === "object" && "document" in payload
+            ? (payload as { document?: CmsDocument }).document
+            : undefined;
+          if (candidate?.schemaVersion === 1) setDocument(candidate);
+        })
+        .catch(() => {
+          // The checked-in content remains the reliable fallback for static builds.
+        });
+    };
 
-    return () => controller.abort();
+    loadPublishedDocument();
+    const refresh = window.setInterval(loadPublishedDocument, 60_000);
+
+    return () => {
+      window.clearInterval(refresh);
+      controller.abort();
+    };
   }, []);
 
   return <CmsContext.Provider value={document}>{children}</CmsContext.Provider>;

@@ -25,7 +25,10 @@ const LOGIN_WINDOW_SECONDS = 15 * 60;
 const MAX_LOGIN_FAILURES = 5;
 const PASSWORD_ITERATIONS = 180_000;
 const MAX_BODY_BYTES = 900_000;
-const PUBLIC_ORIGINS = new Set(["https://orscathinus.github.io"]);
+const PUBLIC_ORIGINS = new Set([
+  "https://orscathinus.github.io",
+  "https://passion-4mg.pages.dev",
+]);
 
 export async function handleCmsRequest(request: Request, env: CmsEnv): Promise<Response | null> {
   const url = new URL(request.url);
@@ -113,7 +116,7 @@ async function ensureDatabase(db: D1Database) {
 async function publicDocument(request: Request, db: D1Database) {
   const row = await documentRow(db);
   const response = json({ document: safeStoredDocument(row.published_json), version: row.published_version }, 200, {
-    "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+    "Cache-Control": "no-store",
   });
   const origin = request.headers.get("Origin");
   if (origin && PUBLIC_ORIGINS.has(origin)) {
