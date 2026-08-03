@@ -57,7 +57,13 @@ export function SiteFooter() {
   const cms = useCmsDocument();
   return (
     <footer className="site-footer">
-      <div className="shell footer-bottom"><span>{cms.site.footerLeft}</span><span>{cms.site.footerRight}</span></div>
+      <div className="shell footer-bottom">
+        <span>{cms.site.footerLeft}</span>
+        <span className="footer-notes">
+          <span>{cms.site.footerRight}</span>
+          <span className="footer-credit">AllegoryNow’s name and guiding metaphor are inspired by Plato’s “Allegory of the Cave.”</span>
+        </span>
+      </div>
     </footer>
   );
 }
