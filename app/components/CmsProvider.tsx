@@ -6,13 +6,18 @@ import { defaultCmsDocument, type CmsDocument } from "../data/cms";
 const CmsContext = createContext<CmsDocument>(defaultCmsDocument);
 const configuredApi = process.env.NEXT_PUBLIC_CMS_API;
 
+export function cmsApiUrl(path: string) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return configuredApi
+    ? `${configuredApi.replace(/\/$/, "")}${normalizedPath}`
+    : normalizedPath;
+}
+
 export function CmsProvider({ children }: { children: ReactNode }) {
   const [document, setDocument] = useState<CmsDocument | null>(null);
 
   useEffect(() => {
-    const endpoint = configuredApi
-      ? `${configuredApi.replace(/\/$/, "")}/api/cms/public`
-      : "/api/cms/public";
+    const endpoint = cmsApiUrl("/api/cms/public");
     const controller = new AbortController();
 
     let initialRequest = true;
