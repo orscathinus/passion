@@ -17,6 +17,7 @@ export type Exhibit = {
 
 export type ClaimConnection = {
   from: string;
+  thickness: number;
   to: string;
 };
 
