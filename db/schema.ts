@@ -50,3 +50,19 @@ export const auditLog = sqliteTable("audit_log", {
   details: text("details").notNull(),
   createdAt: integer("created_at").notNull(),
 }, (table) => [index("audit_log_created_idx").on(table.createdAt)]);
+
+export const exhibitComments = sqliteTable("exhibit_comments", {
+  id: text("id").primaryKey(),
+  exhibitNo: text("exhibit_no").notNull(),
+  parentId: text("parent_id"),
+  authorName: text("author_name").notNull(),
+  body: text("body").notNull(),
+  status: text("status").notNull().default("visible"),
+  ipHash: text("ip_hash").notNull(),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [
+  index("exhibit_comments_exhibit_idx").on(table.exhibitNo, table.status, table.createdAt),
+  index("exhibit_comments_parent_idx").on(table.parentId),
+  index("exhibit_comments_ip_idx").on(table.ipHash, table.createdAt),
+]);
