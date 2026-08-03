@@ -61,7 +61,7 @@ function CommentForm({ exhibitNo, parentId, replyingTo, onCancel, onPosted }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ authorName, body, exhibitNo, parentId, website }),
       });
-      const payload = await response.json().catch(() => ({ error: "The comment service returned an unreadable response." }));
+      const payload = await response.json().catch(() => ({ error: "The comment service returned an unreadable response." })) as { error?: string };
       if (!response.ok) throw new Error(payload.error || "The comment could not be posted.");
       setBody("");
       setNotice("Posted.");
@@ -139,7 +139,7 @@ export function ExhibitComments({ exhibitNo, exhibitTitle }: { exhibitNo: string
       const endpoint = new URL(cmsApiUrl("/api/cms/comments"), window.location.href);
       endpoint.searchParams.set("exhibit", exhibitNo);
       const response = await fetch(endpoint, { credentials: "omit", cache: "no-store" });
-      const payload = await response.json().catch(() => ({ error: "The discussion service returned an unreadable response." }));
+      const payload = await response.json().catch(() => ({ error: "The discussion service returned an unreadable response." })) as { comments?: unknown; error?: string };
       if (!response.ok) throw new Error(payload.error || "Comments could not be loaded.");
       setComments(Array.isArray(payload.comments) ? payload.comments : []);
       setError("");
