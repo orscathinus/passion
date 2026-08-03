@@ -47,8 +47,6 @@ export type CmsDocument = {
     lede: string;
     monogram: string;
     name: string;
-    paperDescription: string;
-    paperTitle: string;
     role: string;
     title: string;
   };
@@ -120,8 +118,6 @@ export const defaultCmsDocument: CmsDocument = {
     name: "[Your full name]",
     role: "[Student researcher · School · Graduation year]",
     bio: "[Write 100–150 words explaining who you are and your relevant background. Keep the focus on the work and avoid private family details.]",
-    paperTitle: "Independent Advocacy for Children in New York Family Court",
-    paperDescription: "A document-based study of structural risk and independent advocacy.",
   },
   inquiry: {
     eyebrow: "Tree of Inquiry · Family Court",

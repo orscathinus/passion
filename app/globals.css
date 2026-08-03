@@ -137,6 +137,8 @@ p { color: var(--ink-soft); line-height: 1.75; }
 .footer-note { max-width: 380px; }
 .footer-bottom { display: flex; justify-content: space-between; gap: 32px; color: rgba(255,255,255,.56); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
 .footer-bottom span:last-child { max-width: 620px; text-align: right; line-height: 1.6; }
+.footer-notes { display: grid; gap: 3px; }
+.footer-credit { color: rgba(255,255,255,.44); font-size: 9px; letter-spacing: .02em; text-transform: none; }
 
 .page-intro { padding-top: 106px; padding-bottom: 80px; border-bottom: 1px solid var(--line); }
 .page-intro h1 { max-width: 1000px; margin-bottom: 28px; font-size: clamp(52px, 7vw, 92px); line-height: .98; }
