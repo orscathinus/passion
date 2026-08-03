@@ -341,11 +341,15 @@ function normalizeDocument(value: unknown): CmsDocument {
     if (!isRecord(item)) throw new CmsValidationError(`Claim connection ${index + 1} is invalid.`);
     const from = text(item.from, `claim connection ${index + 1} starting claim`, 12);
     const to = text(item.to, `claim connection ${index + 1} destination claim`, 12);
+    const thickness = item.thickness ?? 3;
     if (!knownClaims.has(from) || !knownClaims.has(to)) {
       throw new CmsValidationError(`Claim connection ${index + 1} refers to a missing claim.`);
     }
     if (from === to) throw new CmsValidationError(`Claim ${from} cannot connect to itself.`);
-    return { from, to };
+    if (typeof thickness !== "number" || !Number.isInteger(thickness) || thickness < 1 || thickness > 5) {
+      throw new CmsValidationError(`Claim connection ${index + 1} needs a thickness from 1 to 5.`);
+    }
+    return { from, thickness, to };
   });
   unique(connections.map((connection) => `${connection.from}->${connection.to}`), "claim connections");
   const knownSupports = new Set(supports.map((support) => support.id));

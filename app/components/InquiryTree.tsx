@@ -60,7 +60,7 @@ export function InquiryTree() {
               const from = positions.get(connection.from);
               const to = positions.get(connection.to);
               if (!from || !to || !show(connection.from) || !show(connection.to)) return null;
-              return <line className="claim-connection-line" key={`${connection.from}-${connection.to}`} x1={from.x} y1={from.y} x2={to.x} y2={to.y} markerEnd="url(#claim-arrow)" />;
+              return <line className="claim-connection-line" key={`${connection.from}-${connection.to}`} x1={from.x} y1={from.y} x2={to.x} y2={to.y} markerEnd="url(#claim-arrow)" strokeWidth={connection.thickness} strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
             })}
           </svg>
           <span className="ring-label ring-label-outer">Specific claims</span><span className="ring-label ring-label-middle">Focused claims</span><span className="ring-label ring-label-inner">Broader claims</span>
