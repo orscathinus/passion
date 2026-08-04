@@ -6,21 +6,67 @@
   line-height: 1;
 }
 
+.upload-feature-card {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 22px;
+  align-items: start;
+  margin-bottom: 28px;
+  padding: 25px;
+  border: 1px solid var(--rust);
+  background: #eee1ca;
+}
+
+.upload-feature-card > span {
+  display: grid;
+  place-items: center;
+  min-height: 72px;
+  border: 2px solid var(--rust-dark);
+  color: var(--rust-dark);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: .06em;
+}
+
+.upload-feature-card .eyebrow {
+  margin-bottom: 8px;
+}
+
+.upload-feature-card h2 {
+  margin: 0 0 10px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 30px;
+  line-height: 1.08;
+}
+
+.upload-feature-card p:last-child {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.contribution-files {
+  padding: 18px;
+  border: 1px solid var(--rust);
+  background: #fbf5e9;
+}
+
 .contribution-files input[type="file"] {
   height: auto;
-  min-height: 52px;
+  min-height: 58px;
   padding: 12px;
-  border: 1px dashed var(--line);
-  background: var(--paper);
+  border: 1px dashed var(--rust-dark);
+  background: var(--white);
   color: var(--ink-soft);
 }
 
 .contribution-files input[type="file"]::file-selector-button {
   margin-right: 12px;
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  background: var(--white);
-  color: var(--ink);
+  padding: 10px 14px;
+  border: 1px solid var(--rust-dark);
+  background: var(--rust);
+  color: white;
   font-weight: 700;
   cursor: pointer;
 }
@@ -37,4 +83,14 @@
   cursor: wait;
   opacity: .62;
   transform: none;
+}
+
+@media (max-width: 560px) {
+  .upload-feature-card {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-feature-card > span {
+    width: 72px;
+  }
 }
