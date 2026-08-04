@@ -3,6 +3,12 @@
 import { FormEvent, useState } from "react";
 import { cmsApiUrl, useCmsDocument } from "./CmsProvider";
 
+type ContributionResponse = {
+  error?: string;
+  filesStored?: number;
+  receipt?: string;
+};
+
 export function ContributionForm() {
   const { claims: inquiryClaims } = useCmsDocument();
   const [mode, setMode] = useState<"existing" | "new">("existing");
@@ -22,9 +28,17 @@ export function ContributionForm() {
         credentials: "omit",
         body: data,
       });
-      const payload = await response.json().catch(() => ({ error: "The contribution service returned an unreadable response." }));
+      const payload = await response.json().catch((): ContributionResponse => ({
+        error: "The contribution service returned an unreadable response.",
+      })) as ContributionResponse;
       if (!response.ok) throw new Error(payload.error || "The contribution could not be submitted.");
-      setNotice(`Contribution received. Your receipt is ${payload.receipt}. ${payload.filesStored ? `${payload.filesStored} file${payload.filesStored === 1 ? " was" : "s were"} stored privately for administrator review.` : "No files were attached."}`);
+
+      const receipt = payload.receipt || "unavailable";
+      const filesStored = typeof payload.filesStored === "number" ? payload.filesStored : 0;
+      const storageMessage = filesStored
+        ? `${filesStored} file${filesStored === 1 ? " was" : "s were"} stored privately for administrator review.`
+        : "No files were attached.";
+      setNotice(`Contribution received. Your receipt is ${receipt}. ${storageMessage}`);
       form.reset();
       setMode("existing");
     } catch (error) {
