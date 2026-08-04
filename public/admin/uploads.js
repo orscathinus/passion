@@ -6,8 +6,12 @@
   const summary = document.querySelector("#summary");
   const filter = document.querySelector("#status-filter");
   const refreshButton = document.querySelector("#refresh-button");
+  const tokenCard = document.querySelector("#admin-token-card");
+  const tokenForm = document.querySelector("#admin-token-form");
+  const tokenInput = document.querySelector("#admin-token");
+  const reviewTools = document.querySelector("#review-tools");
   let submissions = [];
-  let csrfToken = "";
+  let adminToken = sessionStorage.getItem("allegory-contributions-token") || "";
 
   function element(tag, attributes = {}, text = "") {
     const node = document.createElement(tag);
@@ -42,13 +46,11 @@
   }
 
   async function api(path, options = {}) {
-    const response = await fetch(path, { credentials: "include", ...options });
+    const headers = new Headers(options.headers || {});
+    if (adminToken) headers.set("Authorization", `Bearer ${adminToken}`);
+    const response = await fetch(path, { credentials: "same-origin", ...options, headers });
     const payload = await response.json().catch(() => ({ error: "The server returned an unreadable response." }));
-    if (!response.ok) {
-      if (payload.signInUrl) window.location.assign(payload.signInUrl);
-      throw new Error(payload.error || "The request failed.");
-    }
-    if (payload.csrfToken) csrfToken = payload.csrfToken;
+    if (!response.ok) throw new Error(payload.error || "The request failed.");
     return payload;
   }
 
@@ -87,14 +89,15 @@
 
       const fileSection = element("section", { class: "submission-section" });
       fileSection.append(element("h3", {}, "Attached files"));
-      if (submission.files.length) {
+      if (Array.isArray(submission.files) && submission.files.length) {
         const files = element("ul", { class: "file-list" });
         submission.files.forEach((file) => {
           const item = element("li");
           const details = element("span");
           details.append(document.createTextNode(file.name));
           details.append(element("small", {}, `${formatBytes(file.size)} · ${file.contentType || "unknown type"}`));
-          const download = element("a", { class: "download-link", href: `/api/contributions/admin/file/${encodeURIComponent(file.id)}` }, "Download");
+          const download = element("button", { class: "download-link", type: "button" }, "Download");
+          download.addEventListener("click", () => downloadFile(file, download));
           item.append(details, download);
           files.append(item);
         });
@@ -120,13 +123,42 @@
     });
   }
 
+  async function downloadFile(file, button) {
+    button.disabled = true;
+    setNotice(`Downloading ${file.name}…`);
+    try {
+      const response = await fetch(`/api/contributions/admin/file/${encodeURIComponent(file.id)}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ error: "The file could not be downloaded." }));
+        throw new Error(payload.error || "The file could not be downloaded.");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = file.name || "contribution-file";
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setNotice("Download started.");
+    } catch (error) {
+      setNotice(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   async function updateStatus(submissionId, status, button) {
     button.disabled = true;
     setNotice("Updating review status…");
     try {
       await api("/api/contributions/admin/status", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-allegory-csrf": csrfToken },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ submissionId, status }),
       });
       const submission = submissions.find((item) => item.id === submissionId);
@@ -135,6 +167,7 @@
       render();
     } catch (error) {
       setNotice(error.message, true);
+    } finally {
       button.disabled = false;
     }
   }
@@ -146,7 +179,7 @@
     try {
       await api("/api/contributions/admin/delete", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-allegory-csrf": csrfToken },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ submissionId }),
       });
       submissions = submissions.filter((item) => item.id !== submissionId);
@@ -154,27 +187,43 @@
       render();
     } catch (error) {
       setNotice(error.message, true);
+    } finally {
       button.disabled = false;
     }
   }
 
   async function load() {
+    if (!adminToken) return;
     refreshButton.disabled = true;
     setNotice("Loading submissions…");
     try {
       const payload = await api("/api/contributions/admin");
       submissions = Array.isArray(payload.submissions) ? payload.submissions : [];
+      tokenCard.hidden = true;
+      reviewTools.hidden = false;
       setNotice(submissions.length ? "Private submissions loaded." : "No contributions have been submitted yet.");
       render();
     } catch (error) {
-      setNotice(`${error.message} Open the website editor, unlock it, and return to this page.`, true);
+      adminToken = "";
+      sessionStorage.removeItem("allegory-contributions-token");
+      tokenCard.hidden = false;
+      reviewTools.hidden = true;
       list.replaceChildren();
+      setNotice(error.message, true);
     } finally {
       refreshButton.disabled = false;
     }
   }
 
+  tokenForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    adminToken = tokenInput.value.trim();
+    if (!adminToken) return;
+    sessionStorage.setItem("allegory-contributions-token", adminToken);
+    tokenInput.value = "";
+    load();
+  });
   filter.addEventListener("change", render);
   refreshButton.addEventListener("click", load);
-  load();
+  if (adminToken) load();
 })();
