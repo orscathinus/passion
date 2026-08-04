@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { cmsApiUrl, useCmsDocument } from "./CmsProvider";
+import { useCmsDocument } from "./CmsProvider";
 
 type ContributionResponse = {
   error?: string;
@@ -23,9 +23,12 @@ export function ContributionForm() {
     setNotice("Uploading files and securely submitting your contribution…");
 
     try {
-      const response = await fetch(cmsApiUrl("/api/contributions"), {
+      // Contributions use a same-origin Cloudflare Pages Function. Keeping this
+      // request on allegorynow.org avoids cross-origin/CORS failures and lets the
+      // Pages project write directly to its private R2 bucket.
+      const response = await fetch("/api/contributions", {
         method: "POST",
-        credentials: "omit",
+        credentials: "same-origin",
         body: data,
       });
       const payload = await response.json().catch((): ContributionResponse => ({
@@ -42,7 +45,12 @@ export function ContributionForm() {
       form.reset();
       setMode("existing");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "The contribution could not be submitted.");
+      const message = error instanceof TypeError && error.message.toLowerCase().includes("fetch")
+        ? "The contribution service could not be reached. The site administrator needs to verify the Cloudflare Pages Function and R2 binding."
+        : error instanceof Error
+          ? error.message
+          : "The contribution could not be submitted.";
+      setNotice(message);
     } finally {
       setSubmitting(false);
     }
