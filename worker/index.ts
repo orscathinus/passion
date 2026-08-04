@@ -2,10 +2,12 @@
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { applyAdminSecurityHeaders, handleCmsRequest } from "../server/cms";
+import { applyContributionAdminSecurityHeaders, handleContributionRequest } from "../server/contributions";
 
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
+  UPLOADS: R2Bucket;
   ADMIN_EMAILS?: string;
   IMAGES: {
     input(stream: ReadableStream): {
@@ -30,6 +32,9 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+
+    const contributionResponse = await handleContributionRequest(request, env);
+    if (contributionResponse) return applyAdminSecurityHeaders(request, applyContributionAdminSecurityHeaders(request, contributionResponse));
 
     const cmsResponse = await handleCmsRequest(request, env);
     if (cmsResponse) return applyAdminSecurityHeaders(request, cmsResponse);
