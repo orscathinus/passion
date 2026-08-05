@@ -29,11 +29,26 @@ interface ExecutionContext {
 // dangerouslyAllowSVG: true in next.config.js and uncomment below:
 // const imageConfig: ImageConfig = { dangerouslyAllowSVG: true };
 
+const CANONICAL_CMS_ORIGIN = "https://allegorynow.thirtytwo32percent.chatgpt.site";
+
 function allowPublicCmsFromAnySite(response: Response) {
   const publicResponse = new Response(response.body, response);
   publicResponse.headers.set("Access-Control-Allow-Origin", "*");
   publicResponse.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+  publicResponse.headers.set("Cache-Control", "no-store");
   return publicResponse;
+}
+
+async function canonicalPublicCms(): Promise<Response | null> {
+  try {
+    const response = await fetch(`${CANONICAL_CMS_ORIGIN}/api/cms/public`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    return allowPublicCmsFromAnySite(response);
+  } catch {
+    return null;
+  }
 }
 
 const worker = {
@@ -42,6 +57,17 @@ const worker = {
 
     const contributionResponse = await handleContributionRequest(request, env);
     if (contributionResponse) return applyAdminSecurityHeaders(request, applyContributionAdminSecurityHeaders(request, contributionResponse));
+
+    if (
+      url.pathname === "/api/cms/public" &&
+      request.method === "GET" &&
+      url.origin !== CANONICAL_CMS_ORIGIN
+    ) {
+      // Cloudflare Pages and custom domains use the same published CMS document
+      // as the administrator page instead of a separate deployment-specific D1 copy.
+      const canonicalResponse = await canonicalPublicCms();
+      if (canonicalResponse) return canonicalResponse;
+    }
 
     const cmsResponse = await handleCmsRequest(request, env);
     if (cmsResponse) {
