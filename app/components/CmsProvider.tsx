@@ -5,6 +5,7 @@ import { defaultCmsDocument, type CmsDocument } from "../data/cms";
 
 const CmsContext = createContext<CmsDocument>(defaultCmsDocument);
 const configuredApi = process.env.NEXT_PUBLIC_CMS_API;
+const CANONICAL_CMS_ORIGIN = "https://allegorynow.thirtytwo32percent.chatgpt.site";
 
 export function cmsApiUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -13,32 +14,59 @@ export function cmsApiUrl(path: string) {
     : normalizedPath;
 }
 
+function publicCmsEndpoints() {
+  const path = "/api/cms/public";
+  const endpoints = [
+    configuredApi ? `${configuredApi.replace(/\/$/, "")}${path}` : "",
+    `${CANONICAL_CMS_ORIGIN}${path}`,
+    path,
+  ].filter(Boolean);
+  return [...new Set(endpoints)];
+}
+
+function cacheBustedUrl(endpoint: string) {
+  const divider = endpoint.includes("?") ? "&" : "?";
+  return `${endpoint}${divider}published=${Date.now()}`;
+}
+
 export function CmsProvider({ children }: { children: ReactNode }) {
   const [document, setDocument] = useState<CmsDocument | null>(null);
 
   useEffect(() => {
-    const endpoint = cmsApiUrl("/api/cms/public");
     const controller = new AbortController();
 
     let initialRequest = true;
     const loadPublishedDocument = async () => {
       try {
-        const response = await fetch(endpoint, {
-        signal: controller.signal,
-        credentials: "omit",
-        cache: "no-store",
-        });
-        if (!response.ok) throw new Error("CMS unavailable");
-        const payload: unknown = await response.json();
-        const candidate = payload && typeof payload === "object" && "document" in payload
-          ? (payload as { document?: CmsDocument }).document
-          : undefined;
-        if (candidate?.schemaVersion !== 1) throw new Error("CMS response is invalid");
-        setDocument(candidate);
+        let publishedDocument: CmsDocument | undefined;
+
+        for (const endpoint of publicCmsEndpoints()) {
+          try {
+            const response = await fetch(cacheBustedUrl(endpoint), {
+              signal: controller.signal,
+              credentials: "omit",
+              cache: "no-store",
+              headers: { Accept: "application/json" },
+            });
+            if (!response.ok) continue;
+            const payload: unknown = await response.json();
+            const candidate = payload && typeof payload === "object" && "document" in payload
+              ? (payload as { document?: CmsDocument }).document
+              : undefined;
+            if (candidate?.schemaVersion !== 1) continue;
+            publishedDocument = candidate;
+            break;
+          } catch (error) {
+            if (error instanceof DOMException && error.name === "AbortError") throw error;
+          }
+        }
+
+        if (!publishedDocument) throw new Error("CMS unavailable");
+        setDocument(publishedDocument);
       } catch (error) {
         if (initialRequest && !(error instanceof DOMException && error.name === "AbortError")) {
           // A neutral loading state is shown first; checked-in content is used only
-          // if the live CMS cannot be reached, so stale writing never flashes.
+          // if every live CMS endpoint is unavailable.
           setDocument(defaultCmsDocument);
         }
       } finally {
