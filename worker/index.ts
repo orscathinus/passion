@@ -29,6 +29,13 @@ interface ExecutionContext {
 // dangerouslyAllowSVG: true in next.config.js and uncomment below:
 // const imageConfig: ImageConfig = { dangerouslyAllowSVG: true };
 
+function allowPublicCmsFromAnySite(response: Response) {
+  const publicResponse = new Response(response.body, response);
+  publicResponse.headers.set("Access-Control-Allow-Origin", "*");
+  publicResponse.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+  return publicResponse;
+}
+
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -37,7 +44,15 @@ const worker = {
     if (contributionResponse) return applyAdminSecurityHeaders(request, applyContributionAdminSecurityHeaders(request, contributionResponse));
 
     const cmsResponse = await handleCmsRequest(request, env);
-    if (cmsResponse) return applyAdminSecurityHeaders(request, cmsResponse);
+    if (cmsResponse) {
+      const securedResponse = applyAdminSecurityHeaders(request, cmsResponse);
+      if (url.pathname === "/api/cms/public" && request.method === "GET") {
+        // The published CMS document is intentionally public and is fetched
+        // without credentials by GitHub Pages, Cloudflare Pages, and custom domains.
+        return allowPublicCmsFromAnySite(securedResponse);
+      }
+      return securedResponse;
+    }
 
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
