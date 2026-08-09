@@ -206,10 +206,15 @@
     }));
     const levelLabel = element("label", {}, "Claim level");
     const select = element("select");
+    const centralClaimLocked = claim.level === "Central" && state.document.claims.filter((item) => item.level === "Central").length === 1;
     ["Central","Broader","Focused","Specific"].forEach((value) => select.append(element("option", { value, selected: claim.level === value ? "selected" : null }, value)));
     select.value = claim.level;
-    select.addEventListener("change", () => { claim.level = select.value; markDirty(); });
+    select.disabled = centralClaimLocked;
+    select.addEventListener("change", () => { claim.level = select.value; markDirty(); renderSection(); });
     levelLabel.append(select);
+    if (centralClaimLocked) {
+      levelLabel.append(element("small", { class: "field-note" }, "This underlying Central classification is required. The public Tree center remains visually blank."));
+    }
     editor.append(levelLabel);
     renderFields(editor, claim, [["title","Title","textarea"],["statement","Claim statement","textarea"],["argument","Overall argument","textarea"],["limitation","Counterargument or limitation","textarea"]]);
     editor.append(field("Support IDs (comma-separated)", claim.supportIds.join(", "), "input", (value) => { claim.supportIds = value.split(",").map((item) => item.trim()).filter(Boolean); markDirty(); }));
