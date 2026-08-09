@@ -46,9 +46,7 @@
 
       button.dataset.claimDeleteEnhanced = "true";
       button.textContent = "Delete claim";
-      button.title = button.disabled
-        ? "The central claim is required and cannot be deleted."
-        : "Remove this claim from the draft. It will disappear from the public site after you publish.";
+      button.title = "Remove this claim from the draft. It will disappear from the public site after you publish.";
 
       const toolbar = document.createElement("div");
       toolbar.className = "claim-delete-toolbar";
@@ -57,9 +55,7 @@
       const heading = document.createElement("strong");
       heading.textContent = "Claim actions";
       const note = document.createElement("span");
-      note.textContent = button.disabled
-        ? "The central claim is required and cannot be deleted."
-        : "Deleting this claim also removes every line connected to it.";
+      note.textContent = "Deleting this claim also removes every line connected to it. The separate Central Conclusion is not affected.";
       copy.append(heading, note);
 
       toolbar.append(copy, button);

@@ -36,14 +36,25 @@ test("renders development preview metadata", async () => {
 test("the public Tree center is visually blank", async () => {
   const source = await readFile(new URL("../app/components/InquiryTree.tsx", import.meta.url), "utf8");
 
-  assert.match(source, /<Link className="tree-center-node"[^>]+\/>/);
-  assert.doesNotMatch(source, /<span>#\{centralClaim\.id\}<\/span>/);
+  assert.match(source, /<Link className="tree-center-node" href="\/inquiry\/list#central-conclusion"[^>]+\/>/);
+  assert.doesNotMatch(source, /centralClaim/);
 });
 
-test("the editor protects its only Central claim", async () => {
+test("the editor manages the Central Conclusion separately from claims", async () => {
   const source = await readFile(new URL("../public/admin/admin.js", import.meta.url), "utf8");
 
-  assert.match(source, /const centralClaimLocked = claim\.level === "Central"/);
-  assert.match(source, /select\.disabled = centralClaimLocked/);
-  assert.match(source, /The public Tree center remains visually blank\./);
+  assert.match(source, /label: "Central Conclusion"/);
+  assert.match(source, /renderCentralConclusion/);
+  assert.match(source, /\["Broader","Focused","Specific"\]/);
+  assert.doesNotMatch(source, /centralClaimLocked/);
+});
+
+test("the CMS schema stores an unnumbered conclusion", async () => {
+  const cms = await readFile(new URL("../app/data/cms.ts", import.meta.url), "utf8");
+  const inquiry = await readFile(new URL("../app/data/inquiry.ts", import.meta.url), "utf8");
+
+  assert.match(cms, /schemaVersion: 2/);
+  assert.match(cms, /centralConclusion: CentralConclusion/);
+  assert.match(inquiry, /level: "Broader" \| "Focused" \| "Specific"/);
+  assert.doesNotMatch(inquiry, /level: "Central"/);
 });

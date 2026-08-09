@@ -53,7 +53,7 @@ export function CmsProvider({ children }: { children: ReactNode }) {
             const candidate = payload && typeof payload === "object" && "document" in payload
               ? (payload as { document?: CmsDocument }).document
               : undefined;
-            if (candidate?.schemaVersion !== 1) continue;
+            if (candidate?.schemaVersion !== 2) continue;
             publishedDocument = candidate;
             break;
           } catch (error) {

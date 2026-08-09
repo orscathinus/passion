@@ -97,7 +97,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--rust); box-shado
 .connection-node span { overflow: hidden; font-size: 10px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
 .connection-node.level-specific { border-top-color: #93a89f; }
 .connection-node.level-broader { border-top-color: var(--rust); }
-.connection-node.level-central { border-top-color: var(--forest); }
+.connection-node.level-central-conclusion { border-top-color: var(--forest); }
 .connection-list { display: grid; gap: 8px; }
 .connection-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 12px 14px; border: 1px solid var(--line); background: white; }
 .connection-row-label { min-width: 0; font-size: 11px; line-height: 1.5; }

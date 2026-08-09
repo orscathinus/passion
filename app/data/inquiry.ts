@@ -6,7 +6,7 @@ export type Support = {
 
 export type InquiryClaim = {
   id: string;
-  level: "Central" | "Broader" | "Focused" | "Specific";
+  level: "Broader" | "Focused" | "Specific";
   title: string;
   statement: string;
   argument: string;
@@ -27,7 +27,7 @@ export const supports: Support[] = [
 export const inquiryClaims: InquiryClaim[] = [
   {
     id: "1",
-    level: "Central",
+    level: "Broader",
     title: "Family Court should be protective, explainable, and open to correction.",
     statement: "This is the central proposition being tested by the Tree of Inquiry.",
     argument: "The project will test whether the system protects children while explaining major decisions and allowing meaningful review and correction.",
@@ -135,7 +135,6 @@ export const inquiryClaims: InquiryClaim[] = [
   },
 ];
 
-export const centralClaim = inquiryClaims.find((claim) => claim.level === "Central")!;
 export const broaderClaims = inquiryClaims.filter((claim) => claim.level === "Broader");
 export const focusedClaims = inquiryClaims.filter((claim) => claim.level === "Focused");
 export const specificClaims = inquiryClaims.filter((claim) => claim.level === "Specific");

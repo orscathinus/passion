@@ -18,8 +18,17 @@ export type ClaimConnection = {
   to: string;
 };
 
+export type CentralConclusion = {
+  argument: string;
+  limitation: string;
+  statement: string;
+  title: string;
+};
+
+export const CENTRAL_CONCLUSION_ID = "central-conclusion";
+
 export type CmsDocument = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   site: {
     brandName: string;
     footerLeft: string;
@@ -60,6 +69,7 @@ export type CmsDocument = {
     title: string;
   };
   supports: Support[];
+  centralConclusion: CentralConclusion;
   claims: InquiryClaim[];
   connections: ClaimConnection[];
   exhibits: {
@@ -88,7 +98,7 @@ export type CmsDocument = {
 };
 
 export const defaultCmsDocument: CmsDocument = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   site: {
     brandName: "AllegoryNow",
     footerLeft: "© 2026 AllegoryNow",
@@ -129,6 +139,12 @@ export const defaultCmsDocument: CmsDocument = {
     philosophyText: "The project’s administrators will add lines after deciding which claims support one another.",
   },
   supports: supports.map((support) => ({ ...support })),
+  centralConclusion: {
+    title: "Family Court should be protective, explainable, and open to correction.",
+    statement: "This is the central conclusion being tested by the Tree of Inquiry.",
+    argument: "The project will test whether the system protects children while explaining major decisions and allowing meaningful review and correction.",
+    limitation: "This is a direction for inquiry, not a conclusion that every case or professional fails this standard.",
+  },
   claims: inquiryClaims.map((claim) => ({
     ...claim,
     evidence: claim.evidence.map((item) => ({ ...item })),

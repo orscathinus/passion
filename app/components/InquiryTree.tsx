@@ -10,6 +10,7 @@ import {
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import { useCmsDocument } from "./CmsProvider";
+import { CENTRAL_CONCLUSION_ID } from "../data/cms";
 
 const MIN_TREE_SCALE = 0.5;
 const MAX_TREE_SCALE = 2.5;
@@ -51,16 +52,15 @@ function connectionStrokeWidth(thickness: number) {
 export function InquiryTree() {
   const cms = useCmsDocument();
   const inquiryClaims = cms.claims;
-  const centralClaim = inquiryClaims.find((claim) => claim.level === "Central") ?? inquiryClaims[0]!;
   const broaderClaims = inquiryClaims.filter((claim) => claim.level === "Broader");
   const specificClaims = inquiryClaims.filter((claim) => claim.level === "Specific");
   const positions = useMemo(() => {
     const result = new Map<string, { x: number; y: number }>();
     specificClaims.forEach((claim, index) => result.set(claim.id, point(index, specificClaims.length, 45)));
     broaderClaims.forEach((claim, index) => result.set(claim.id, point(index, broaderClaims.length, 20, -90)));
-    result.set(centralClaim.id, { x: 50, y: 50 });
+    result.set(CENTRAL_CONCLUSION_ID, { x: 50, y: 50 });
     return result;
-  }, [broaderClaims, centralClaim.id, specificClaims]);
+  }, [broaderClaims, specificClaims]);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<TreeView>({ scale: 1, x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -217,7 +217,7 @@ export function InquiryTree() {
       )}
 
       <div className="tree-wrap concentric-tree-wrap">
-        <div className="tree-legend"><span><i className="specific-dot" /> Specific</span><span><i className="conclusion-dot" /> Broader</span><span><i className="central-dot" /> Central</span></div>
+        <div className="tree-legend"><span><i className="specific-dot" /> Specific</span><span><i className="conclusion-dot" /> Broader</span><span><i className="central-dot" /> Central conclusion</span></div>
         <div className="tree-panzoom-shell">
           <div className="tree-zoom-controls" aria-label="Tree zoom controls">
             <button type="button" onClick={() => zoomAt(viewRef.current.scale - TREE_SCALE_STEP)} aria-label="Zoom out">−</button>
@@ -255,7 +255,9 @@ export function InquiryTree() {
             {cms.connections.map((connection) => {
               const from = positions.get(connection.from);
               const to = positions.get(connection.to);
-              if (!from || !to || !show(connection.from) || !show(connection.to)) return null;
+              const fromVisible = connection.from === CENTRAL_CONCLUSION_ID || show(connection.from);
+              const toVisible = connection.to === CENTRAL_CONCLUSION_ID || show(connection.to);
+              if (!from || !to || !fromVisible || !toVisible) return null;
               const strokeWidth = connectionStrokeWidth(connection.thickness);
               return <g key={`${connection.from}-${connection.to}`}><line className="claim-connection-halo" x1={from.x} y1={from.y} x2={to.x} y2={to.y} style={{ strokeWidth: strokeWidth + 2.5 }} strokeLinecap="round" vectorEffect="non-scaling-stroke" /><line className="claim-connection-line" x1={from.x} y1={from.y} x2={to.x} y2={to.y} style={{ strokeWidth }} strokeLinecap="round" vectorEffect="non-scaling-stroke" /></g>;
             })}
@@ -264,7 +266,7 @@ export function InquiryTree() {
 
           {specificClaims.map((claim, index) => { const position = point(index, specificClaims.length, 45); return show(claim.id) ? <Link className="tree-claim-node tree-specific-node" href={`/inquiry/list#claim-${claim.id}`} key={claim.id} style={{ left: `${position.x}%`, top: `${position.y}%` }} aria-label={`Open claim ${claim.id}: ${claim.title}`}><span>#{claim.id}</span><b>{claim.title}</b></Link> : null; })}
           {broaderClaims.map((claim, index) => { const position = point(index, broaderClaims.length, 20, -90); return show(claim.id) ? <Link className="tree-conclusion-node" href={`/inquiry/list#claim-${claim.id}`} key={claim.id} style={{ left: `${position.x}%`, top: `${position.y}%` }} aria-label={`Open claim ${claim.id}: ${claim.title}`}><span>#{claim.id}</span><b>{claim.title}</b></Link> : null; })}
-          {show(centralClaim.id) && <Link className="tree-center-node" href={`/inquiry/list#claim-${centralClaim.id}`} aria-label={`Open central claim: ${centralClaim.title}`} />}
+          <Link className="tree-center-node" href="/inquiry/list#central-conclusion" aria-label={`Open central conclusion: ${cms.centralConclusion.title}`} />
         </div>
           </div>
         </div>

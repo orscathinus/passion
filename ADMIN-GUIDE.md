@@ -12,7 +12,7 @@ The website now has a protected visual editor at `/admin/`. GitHub Pages sends t
 
 The administrator password is an additional layer after account authorization. It is stored only as a salted password hash. Administrator sessions use secure, HTTP-only cookies and expire after one hour.
 
-The editor includes page writing, support categories, claims, exhibits, Q&A, contact text, and footer writing. Adding a claim automatically adds it to both Tree and list modes after publication.
+The editor includes page writing, the separate unnumbered Central Conclusion, support categories, claims, exhibits, Q&A, contact text, and footer writing. Adding a claim automatically adds it to the relevant Tree and list views after publication.
 
 ## Where to edit content now
 
@@ -21,7 +21,8 @@ The editor includes page writing, support categories, claims, exhibits, Q&A, con
 | Home page | `app/page.tsx` |
 | Mission statement | `app/mission/page.tsx` |
 | Biography and credentials | `app/who-we-are/page.tsx` |
-| Claims, supports, evidence, and conclusion links | `app/data/inquiry.ts` |
+| Default numbered claims and supports | `app/data/inquiry.ts` |
+| Default Central Conclusion and CMS structure | `app/data/cms.ts` |
 | Exhibit list | `app/components/ExhibitBrowser.tsx` |
 | Exhibit PDFs | `public/exhibits/family-court/` |
 | Questions and rules | `app/qa-rules/page.tsx` |
@@ -42,16 +43,14 @@ Never upload sealed records, a child's identifying information, medical details,
 
 ## Adding a claim
 
-Open `app/data/inquiry.ts` and copy one object in the `focusedClaims` list. Give it a new two-digit `id`, then update:
+Open **Tree + Claims** in the administrator page, select **Add new claim**, and update:
 
-- `title`, `statement`, and `status`;
-- the argument being tested;
-- `supportIds` using existing support IDs;
-- evidence labels and links;
-- `conclusionIds` for every broader conclusion it supports; and
+- its number and level;
+- its title, statement, and overall argument;
+- support IDs and evidence links; and
 - a serious counterargument or limitation.
 
-The tree and list pages read from this same file, so the new claim appears in both places automatically.
+The Central Conclusion is not a claim and never receives a claim number. Edit it on the separate **Central Conclusion** administrator page. Use the line editor under **Tree + Claims** to connect broader claims to it.
 
 ## Adding an exhibit
 

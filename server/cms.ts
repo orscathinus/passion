@@ -1,4 +1,4 @@
-import { defaultCmsDocument, type CmsDocument } from "../app/data/cms";
+import { CENTRAL_CONCLUSION_ID, defaultCmsDocument, type CmsDocument } from "../app/data/cms";
 import { derivePassword } from "./password";
 
 export type CmsEnv = {
@@ -487,7 +487,8 @@ function safeStoredDocument(value: string): CmsDocument {
 }
 
 function normalizeDocument(value: unknown): CmsDocument {
-  if (!isRecord(value) || value.schemaVersion !== 1) throw new CmsValidationError("The draft format is invalid.");
+  if (!isRecord(value) || (value.schemaVersion !== 1 && value.schemaVersion !== 2)) throw new CmsValidationError("The draft format is invalid.");
+  const sourceVersion = value.schemaVersion;
   const section = <T extends Record<string, string>>(key: keyof CmsDocument, template: T): T => {
     const input = value[key];
     if (!isRecord(input)) throw new CmsValidationError(`The ${String(key)} section is invalid.`);
@@ -504,13 +505,15 @@ function normalizeDocument(value: unknown): CmsDocument {
 
   const claimsInput = value.claims;
   if (!Array.isArray(claimsInput) || !claimsInput.length || claimsInput.length > 200) throw new CmsValidationError("Claims must contain between 1 and 200 entries.");
+  const legacyCentralClaimIds = new Set<string>();
   const claims = claimsInput.map((item, index) => {
     if (!isRecord(item)) throw new CmsValidationError(`Claim ${index + 1} is invalid.`);
     const id = text(item.id, "claim id", 12);
     if (!/^\d+$/.test(id)) throw new CmsValidationError(`Claim ${id || index + 1} needs a numeric ID.`);
     if (String(Number(id)) !== id) throw new CmsValidationError(`Claim ${id} cannot contain leading zeroes.`);
     const level = text(item.level, `claim ${id} level`, 20);
-    if (!["Central", "Broader", "Focused", "Specific"].includes(level)) throw new CmsValidationError(`Claim ${id} has an invalid level.`);
+    if (level === "Central" && sourceVersion === 1) legacyCentralClaimIds.add(id);
+    if (!["Broader", "Focused", "Specific"].includes(level) && !(sourceVersion === 1 && level === "Central")) throw new CmsValidationError(`Claim ${id} has an invalid level.`);
     if (!Array.isArray(item.supportIds) || item.supportIds.length > 50) throw new CmsValidationError(`Claim ${id} has invalid supports.`);
     if (!Array.isArray(item.evidence) || item.evidence.length > 100) throw new CmsValidationError(`Claim ${id} has invalid evidence.`);
     const supportIds = item.supportIds.map((entry) => text(entry, `claim ${id} support`, 20));
@@ -522,7 +525,7 @@ function normalizeDocument(value: unknown): CmsDocument {
     });
     return {
       id,
-      level: level as "Central" | "Broader" | "Focused" | "Specific",
+      level: (level === "Central" ? "Broader" : level) as "Broader" | "Focused" | "Specific",
       title: text(item.title, `claim ${id} title`, 500),
       statement: text(item.statement, `claim ${id} statement`, 6_000),
       argument: text(item.argument, `claim ${id} argument`, 8_000),
@@ -532,6 +535,16 @@ function normalizeDocument(value: unknown): CmsDocument {
     };
   });
   unique(claims.map((claim) => claim.id), "claim IDs");
+  const legacyCentralClaim = claims.find((claim) => legacyCentralClaimIds.has(claim.id));
+  const centralConclusionInput = isRecord(value.centralConclusion)
+    ? value.centralConclusion
+    : legacyCentralClaim ?? defaultCmsDocument.centralConclusion;
+  const centralConclusion = {
+    title: text(centralConclusionInput.title, "central conclusion title", 500),
+    statement: text(centralConclusionInput.statement, "central conclusion statement", 6_000),
+    argument: text(centralConclusionInput.argument, "central conclusion argument", 8_000),
+    limitation: text(centralConclusionInput.limitation, "central conclusion limitation", 8_000),
+  };
   const knownClaims = new Set(claims.map((claim) => claim.id));
   const connectionsInput = value.connections ?? [];
   if (!Array.isArray(connectionsInput) || connectionsInput.length > 500) {
@@ -539,25 +552,27 @@ function normalizeDocument(value: unknown): CmsDocument {
   }
   const connections = connectionsInput.map((item, index) => {
     if (!isRecord(item)) throw new CmsValidationError(`Claim connection ${index + 1} is invalid.`);
-    const from = text(item.from, `claim connection ${index + 1} starting claim`, 12);
-    const to = text(item.to, `claim connection ${index + 1} destination claim`, 12);
+    const originalFrom = text(item.from, `Tree connection ${index + 1} starting item`, 40);
+    const originalTo = text(item.to, `Tree connection ${index + 1} destination item`, 40);
+    const from = sourceVersion === 1 && legacyCentralClaimIds.has(originalFrom) ? CENTRAL_CONCLUSION_ID : originalFrom;
+    const to = sourceVersion === 1 && legacyCentralClaimIds.has(originalTo) ? CENTRAL_CONCLUSION_ID : originalTo;
     const thickness = item.thickness ?? 3;
-    if (!knownClaims.has(from) || !knownClaims.has(to)) {
-      throw new CmsValidationError(`Claim connection ${index + 1} refers to a missing claim.`);
+    const endpointExists = (id: string) => id === CENTRAL_CONCLUSION_ID || knownClaims.has(id);
+    if (!endpointExists(from) || !endpointExists(to)) {
+      throw new CmsValidationError(`Tree connection ${index + 1} refers to a missing item.`);
     }
-    if (from === to) throw new CmsValidationError(`Claim ${from} cannot connect to itself.`);
+    if (from === to) throw new CmsValidationError("An item cannot connect to itself.");
     if (typeof thickness !== "number" || !Number.isInteger(thickness) || thickness < 1 || thickness > 5) {
-      throw new CmsValidationError(`Claim connection ${index + 1} needs a thickness from 1 to 5.`);
+      throw new CmsValidationError(`Tree connection ${index + 1} needs a thickness from 1 to 5.`);
     }
     return { from, thickness, to };
   });
-  unique(connections.map((connection) => `${connection.from}->${connection.to}`), "claim connections");
+  unique(connections.map((connection) => `${connection.from}->${connection.to}`), "Tree connections");
   const knownSupports = new Set(supports.map((support) => support.id));
   for (const claim of claims) {
     const missing = claim.supportIds.find((supportId) => !knownSupports.has(supportId));
     if (missing) throw new CmsValidationError(`Claim ${claim.id} refers to missing support ${missing}.`);
   }
-  if (!claims.some((claim) => claim.level === "Central")) throw new CmsValidationError("At least one Central claim is required.");
 
   const qaInput = isRecord(value.qa) ? value.qa : null;
   if (!qaInput || !Array.isArray(qaInput.items) || qaInput.items.length > 100) throw new CmsValidationError("The Q&A list is invalid.");
@@ -588,13 +603,14 @@ function normalizeDocument(value: unknown): CmsDocument {
   if (mission.proposalButton === "Open proposal") mission.proposalButton = defaultCmsDocument.mission.proposalButton;
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     site: section("site", defaultCmsDocument.site),
     home: section("home", defaultCmsDocument.home),
     mission,
     who: section("who", defaultCmsDocument.who),
     inquiry: section("inquiry", defaultCmsDocument.inquiry),
     supports,
+    centralConclusion,
     claims,
     connections,
     exhibits,

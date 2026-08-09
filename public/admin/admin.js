@@ -3,6 +3,7 @@
 
   const SITE_ADMIN_URL = "https://allegorynow.thirtytwo32percent.chatgpt.site/admin/index.html";
   const SITE_ADMIN_HOST = new URL(SITE_ADMIN_URL).hostname;
+  const CENTRAL_CONCLUSION_ID = "central-conclusion";
   const LOCAL_PREVIEW_HOSTS = new Set(["terminal.local", "localhost"]);
   if (location.hostname !== SITE_ADMIN_HOST && !LOCAL_PREVIEW_HOSTS.has(location.hostname)) {
     location.replace(SITE_ADMIN_URL);
@@ -18,6 +19,7 @@
     { id: "home", label: "Home", title: "Home page", fields: [["headline","Main headline","textarea"],["goalLabel","Path goal label","input"],["primaryButton","Primary button","input"],["secondaryButton","Secondary button","input"]] },
     { id: "mission", label: "Mission", title: "Mission page", fields: [["eyebrow","Small heading","input"],["title","Page title","textarea"],["lede","Introduction","textarea"],["body","Mission statement","textarea"],["proposalEyebrow","Reform proposal label","input"],["proposalTitle","Reform proposal heading","input"],["proposalText","Reform proposal description","textarea"]] },
     { id: "who", label: "Who We Are", title: "Who We Are page", fields: [["eyebrow","Small heading","input"],["title","Page title","textarea"],["lede","Introduction","textarea"],["monogram","Profile initials","input"],["name","Name","input"],["role","Role and credentials","input"],["bio","Biography","textarea"]] },
+    { id: "centralConclusion", label: "Central Conclusion", title: "Central Conclusion", custom: "centralConclusion" },
     { id: "inquiry", label: "Tree + Claims", title: "Tree of Inquiry", custom: "claims" },
     { id: "exhibits", label: "Exhibits", title: "Exhibits page", custom: "exhibits" },
     { id: "comments", label: "Comments", title: "Comment moderation", custom: "comments" },
@@ -127,7 +129,8 @@
     const editingContent = definition.custom !== "comments";
     app.querySelector("#save-button").hidden = !editingContent;
     app.querySelector("#publish-button").hidden = !editingContent;
-    if (definition.custom === "claims") renderClaims(form);
+    if (definition.custom === "centralConclusion") renderCentralConclusion(form);
+    else if (definition.custom === "claims") renderClaims(form);
     else if (definition.custom === "qa") renderQa(form);
     else if (definition.custom === "exhibits") renderExhibits(form);
     else if (definition.custom === "comments") renderComments(form);
@@ -137,6 +140,21 @@
 
   function renderFields(container, target, fields) {
     fields.forEach(([key, label, kind]) => container.append(field(label, target[key], kind, (value) => { target[key] = value; markDirty(); })));
+  }
+
+  function renderCentralConclusion(container) {
+    const section = element("section", { class: "editor-section central-conclusion-editor" });
+    section.append(
+      element("h3", {}, "Central Conclusion"),
+      element("p", { class: "field-note" }, "This is the unnumbered conclusion at the center of the Tree. It is separate from every claim and does not use a claim number or claim level."),
+    );
+    renderFields(section, state.document.centralConclusion, [
+      ["title", "Conclusion title", "textarea"],
+      ["statement", "Conclusion statement", "textarea"],
+      ["argument", "How the Tree leads to this conclusion", "textarea"],
+      ["limitation", "Qualification or limitation", "textarea"],
+    ]);
+    container.append(section);
   }
 
   function renderClaims(container) {
@@ -161,7 +179,7 @@
 
     const claimsSection = element("section", { class: "editor-section" });
     const heading = element("div");
-    heading.append(element("h3", {}, "Claims"), element("p", { class: "field-note" }, "Add or edit claims here. Changes remain drafts until you publish them."));
+    heading.append(element("h3", {}, "Claims"), element("p", { class: "field-note" }, "Add or edit numbered claims here. The Central Conclusion is managed separately and never uses a claim number."));
     const addClaim = element("button", { class: "primary-button", type: "button" }, "Add new claim");
     addClaim.addEventListener("click", () => {
       const id = String(Math.max(0, ...state.document.claims.map((claim) => Number(claim.id) || 0)) + 1);
@@ -206,21 +224,15 @@
     }));
     const levelLabel = element("label", {}, "Claim level");
     const select = element("select");
-    const centralClaimLocked = claim.level === "Central" && state.document.claims.filter((item) => item.level === "Central").length === 1;
-    ["Central","Broader","Focused","Specific"].forEach((value) => select.append(element("option", { value, selected: claim.level === value ? "selected" : null }, value)));
+    ["Broader","Focused","Specific"].forEach((value) => select.append(element("option", { value, selected: claim.level === value ? "selected" : null }, value)));
     select.value = claim.level;
-    select.disabled = centralClaimLocked;
     select.addEventListener("change", () => { claim.level = select.value; markDirty(); renderSection(); });
     levelLabel.append(select);
-    if (centralClaimLocked) {
-      levelLabel.append(element("small", { class: "field-note" }, "This underlying Central classification is required. The public Tree center remains visually blank."));
-    }
     editor.append(levelLabel);
     renderFields(editor, claim, [["title","Title","textarea"],["statement","Claim statement","textarea"],["argument","Overall argument","textarea"],["limitation","Counterargument or limitation","textarea"]]);
     editor.append(field("Support IDs (comma-separated)", claim.supportIds.join(", "), "input", (value) => { claim.supportIds = value.split(",").map((item) => item.trim()).filter(Boolean); markDirty(); }));
     editor.append(field("Evidence (one per line: Label | URL)", claim.evidence.map((item) => `${item.label} | ${item.href}`).join("\n"), "textarea", (value) => { claim.evidence = value.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => { const divider = line.indexOf("|"); return divider < 0 ? { label: line, href: "" } : { label: line.slice(0,divider).trim(), href: line.slice(divider + 1).trim() }; }); markDirty(); }));
     const remove = element("button", { class: "danger-button", type: "button" }, "Archive this claim from the draft");
-    remove.disabled = claim.level === "Central";
     remove.addEventListener("click", () => { if (confirm(`Remove claim #${claim.id} from the draft? Its published version remains live until you publish.`)) { state.document.claims = state.document.claims.filter((item) => item !== claim); state.document.connections = state.document.connections.filter((connection) => connection.from !== claim.id && connection.to !== claim.id); state.selectedClaim = state.document.claims[0]?.id || ""; if (state.connectionStart === claim.id) state.connectionStart = ""; markDirty(); renderSection(); } });
     editor.append(remove);
     return editor;
@@ -229,17 +241,17 @@
   function renderConnections(container) {
     const section = element("section", { class: "editor-section connection-section" });
     section.append(
-      element("h3", {}, "Lines between claims"),
+      element("h3", {}, "Lines between claims and the conclusion"),
       element("p", { class: "field-note" }, state.connectionStart
-        ? `Claim #${state.connectionStart} selected. Now click the claim it supports.`
-        : "Click the supporting claim first, then click the claim it supports. An arrow will be drawn in that direction."),
+        ? `${connectionEndpointLabel(state.connectionStart)} selected. Now click what it supports.`
+        : "Click the supporting claim first, then click the claim or Central Conclusion it supports. A line will be drawn in that direction."),
     );
 
     const thicknessControl = element("label", { class: "connection-thickness-control" });
     const thicknessCopy = element("span");
     thicknessCopy.append(
       element("b", {}, "New line thickness"),
-      element("small", {}, "Choose a width, then click the two claims you want to connect."),
+      element("small", {}, "Choose a width, then click the two items you want to connect."),
     );
     const thicknessInput = element("input", { type: "range", min: "1", max: "5", step: "1", value: String(state.connectionThickness), "aria-label": "New line thickness" });
     const thicknessOutput = element("output", {}, thicknessLabel(state.connectionThickness));
@@ -253,7 +265,7 @@
     const scroll = element("div", { class: "connection-map-scroll" });
     const map = element("div", { class: "connection-map" });
     const labels = element("div", { class: "connection-level-labels", "aria-hidden": "true" });
-    ["Specific claims", "Focused claims", "Broader claims", "Central claim"].forEach((label) => labels.append(element("span", {}, label)));
+    ["Specific claims", "Focused claims", "Broader claims", "Central conclusion"].forEach((label) => labels.append(element("span", {}, label)));
     map.append(labels);
     const svg = svgElement("svg", { class: "connection-map-lines", viewBox: "0 0 100 100", "aria-hidden": "true", preserveAspectRatio: "none" });
 
@@ -278,6 +290,13 @@
       button.addEventListener("click", () => selectConnectionClaim(claim.id));
       map.append(button);
     });
+    const conclusionPosition = positions.get(CENTRAL_CONCLUSION_ID);
+    const conclusionButton = element("button", { type: "button", class: `connection-node level-central-conclusion${state.connectionStart === CENTRAL_CONCLUSION_ID ? " selected" : ""}`, "aria-pressed": state.connectionStart === CENTRAL_CONCLUSION_ID ? "true" : "false" });
+    conclusionButton.style.left = `${conclusionPosition.x}%`;
+    conclusionButton.style.top = `${conclusionPosition.y}%`;
+    conclusionButton.append(element("b", {}, "Central conclusion"), element("span", {}, state.document.centralConclusion.title));
+    conclusionButton.addEventListener("click", () => selectConnectionClaim(CENTRAL_CONCLUSION_ID));
+    map.append(conclusionButton);
     scroll.append(map);
     section.append(scroll);
 
@@ -286,13 +305,11 @@
       list.append(element("p", { class: "field-note" }, "No lines have been added yet."));
     } else {
       state.document.connections.forEach((connection, index) => {
-        const from = state.document.claims.find((claim) => claim.id === connection.from);
-        const to = state.document.claims.find((claim) => claim.id === connection.to);
         const row = element("div", { class: "connection-row" });
-        row.append(element("span", { class: "connection-row-label" }, `#${connection.from} ${from?.title || "Unknown claim"} → #${connection.to} ${to?.title || "Unknown claim"}`));
+        row.append(element("span", { class: "connection-row-label" }, `${connectionEndpointLabel(connection.from, true)} → ${connectionEndpointLabel(connection.to, true)}`));
         const controls = element("div", { class: "connection-row-controls" });
         const widthLabel = element("label", { class: "connection-row-thickness" }, "Thickness");
-        const widthInput = element("input", { type: "range", min: "1", max: "5", step: "1", value: String(connection.thickness), "aria-label": `Thickness of line from claim ${connection.from} to claim ${connection.to}` });
+        const widthInput = element("input", { type: "range", min: "1", max: "5", step: "1", value: String(connection.thickness), "aria-label": `Thickness of line from ${connectionEndpointLabel(connection.from)} to ${connectionEndpointLabel(connection.to)}` });
         const widthOutput = element("output", {}, thicknessLabel(connection.thickness));
         widthInput.addEventListener("input", () => {
           connection.thickness = Number(widthInput.value);
@@ -318,7 +335,7 @@
     if (!state.connectionStart) {
       state.connectionStart = id;
       renderSection();
-      setNotice(`Claim #${id} selected as the supporting claim.`);
+      setNotice(`${connectionEndpointLabel(id)} selected as the supporting item.`);
       return;
     }
     if (state.connectionStart === id) {
@@ -331,23 +348,30 @@
     state.connectionStart = "";
     if (state.document.connections.some((connection) => connection.from === from && connection.to === id)) {
       renderSection();
-      setNotice(`The line from claim #${from} to claim #${id} already exists.`, true);
+      setNotice(`The line from ${connectionEndpointLabel(from)} to ${connectionEndpointLabel(id)} already exists.`, true);
       return;
     }
     state.document.connections.push({ from, to: id, thickness: state.connectionThickness });
     markDirty();
     renderSection();
-    setNotice(`Line added: claim #${from} supports claim #${id}. Save the draft when ready.`);
+    setNotice(`Line added: ${connectionEndpointLabel(from)} supports ${connectionEndpointLabel(id)}. Save the draft when ready.`);
   }
 
   function connectionPositions() {
     const positions = new Map();
-    const levelX = { Specific: 12, Focused: 38, Broader: 65, Central: 88 };
+    const levelX = { Specific: 12, Focused: 38, Broader: 65 };
     Object.keys(levelX).forEach((level) => {
       const claims = state.document.claims.filter((claim) => claim.level === level).sort((a, b) => Number(a.id) - Number(b.id));
       claims.forEach((claim, index) => positions.set(claim.id, { x: levelX[level], y: ((index + 1) / (claims.length + 1)) * 100 }));
     });
+    positions.set(CENTRAL_CONCLUSION_ID, { x: 88, y: 50 });
     return positions;
+  }
+
+  function connectionEndpointLabel(id, includeTitle = false) {
+    if (id === CENTRAL_CONCLUSION_ID) return includeTitle ? `Central Conclusion · ${state.document.centralConclusion.title}` : "Central Conclusion";
+    const claim = state.document.claims.find((item) => item.id === id);
+    return includeTitle ? `#${id} ${claim?.title || "Unknown claim"}` : `claim #${id}`;
   }
 
   function connectionStrokeWidth(value) {

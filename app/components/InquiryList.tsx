@@ -10,7 +10,7 @@ function normalizeNumber(value: string) {
 }
 
 export function InquiryList() {
-  const { claims: inquiryClaims, supports } = useCmsDocument();
+  const { centralConclusion, claims: inquiryClaims, supports } = useCmsDocument();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"asc" | "desc">("asc");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -25,6 +25,16 @@ export function InquiryList() {
     <section className="shell inquiry-list-page">
       <div className="inquiry-toolbar"><div className="mode-links" aria-label="Inquiry views"><Link href="/inquiry">Tree mode</Link><Link className="selected" href="/inquiry/list">List mode</Link></div><div className="tree-tools"><label className="tree-search"><span className="sr-only">Search by claim number</span><span aria-hidden="true">⌕</span><input inputMode="numeric" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Enter claim number" type="search" /></label><label className="tree-sort"><span>Claim order</span><select value={sort} onChange={(event) => setSort(event.target.value as "asc" | "desc")}><option value="asc">1 → 12</option><option value="desc">12 → 1</option></select></label></div></div>
       <div className="list-meta"><p className="list-count" aria-live="polite">{searching ? (shown.length ? "1 claim found" : "No claim with that number") : `Showing all ${inquiryClaims.length} claims`}</p><Link href="/qa-rules#rules">Read the discussion rules →</Link></div>
+
+      {!searching && <article className="central-conclusion-record" id="central-conclusion">
+        <p className="central-conclusion-label">Central conclusion</p>
+        <h2>{centralConclusion.title}</h2>
+        <p className="central-conclusion-statement">{centralConclusion.statement}</p>
+        <div className="central-conclusion-grid">
+          <section><h3>How the Tree leads here</h3><p>{centralConclusion.argument}</p></section>
+          <section><h3>Qualification or limit</h3><p>{centralConclusion.limitation}</p></section>
+        </div>
+      </article>}
 
       <div className="claim-list">
         {shown.map((claim) => {
