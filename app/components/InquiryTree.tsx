@@ -264,7 +264,7 @@ export function InquiryTree() {
 
           {specificClaims.map((claim, index) => { const position = point(index, specificClaims.length, 45); return show(claim.id) ? <Link className="tree-claim-node tree-specific-node" href={`/inquiry/list#claim-${claim.id}`} key={claim.id} style={{ left: `${position.x}%`, top: `${position.y}%` }} aria-label={`Open claim ${claim.id}: ${claim.title}`}><span>#{claim.id}</span><b>{claim.title}</b></Link> : null; })}
           {broaderClaims.map((claim, index) => { const position = point(index, broaderClaims.length, 20, -90); return show(claim.id) ? <Link className="tree-conclusion-node" href={`/inquiry/list#claim-${claim.id}`} key={claim.id} style={{ left: `${position.x}%`, top: `${position.y}%` }} aria-label={`Open claim ${claim.id}: ${claim.title}`}><span>#{claim.id}</span><b>{claim.title}</b></Link> : null; })}
-          {show(centralClaim.id) && <Link className="tree-center-node" href={`/inquiry/list#claim-${centralClaim.id}`} aria-label={`Open claim ${centralClaim.id}: ${centralClaim.title}`}><span>#{centralClaim.id}</span></Link>}
+          {show(centralClaim.id) && <Link className="tree-center-node" href={`/inquiry/list#claim-${centralClaim.id}`} aria-label={`Open central claim: ${centralClaim.title}`} />}
         </div>
           </div>
         </div>
