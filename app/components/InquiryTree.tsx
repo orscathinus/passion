@@ -53,16 +53,14 @@ export function InquiryTree() {
   const inquiryClaims = cms.claims;
   const centralClaim = inquiryClaims.find((claim) => claim.level === "Central") ?? inquiryClaims[0]!;
   const broaderClaims = inquiryClaims.filter((claim) => claim.level === "Broader");
-  const focusedClaims = inquiryClaims.filter((claim) => claim.level === "Focused");
   const specificClaims = inquiryClaims.filter((claim) => claim.level === "Specific");
   const positions = useMemo(() => {
     const result = new Map<string, { x: number; y: number }>();
     specificClaims.forEach((claim, index) => result.set(claim.id, point(index, specificClaims.length, 45)));
-    focusedClaims.forEach((claim, index) => result.set(claim.id, point(index, focusedClaims.length, 32, -45)));
     broaderClaims.forEach((claim, index) => result.set(claim.id, point(index, broaderClaims.length, 20, -90)));
     result.set(centralClaim.id, { x: 50, y: 50 });
     return result;
-  }, [broaderClaims, centralClaim.id, focusedClaims, specificClaims]);
+  }, [broaderClaims, centralClaim.id, specificClaims]);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<TreeView>({ scale: 1, x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -219,7 +217,7 @@ export function InquiryTree() {
       )}
 
       <div className="tree-wrap concentric-tree-wrap">
-        <div className="tree-legend"><span><i className="specific-dot" /> Specific</span><span><i className="claim-dot" /> Focused</span><span><i className="conclusion-dot" /> Broader</span><span><i className="central-dot" /> Central</span></div>
+        <div className="tree-legend"><span><i className="specific-dot" /> Specific</span><span><i className="conclusion-dot" /> Broader</span><span><i className="central-dot" /> Central</span></div>
         <div className="tree-panzoom-shell">
           <div className="tree-zoom-controls" aria-label="Tree zoom controls">
             <button type="button" onClick={() => zoomAt(viewRef.current.scale - TREE_SCALE_STEP)} aria-label="Zoom out">−</button>
@@ -253,7 +251,7 @@ export function InquiryTree() {
           aria-label="Concentric Tree of Inquiry with published connections between claims."
         >
           <svg className="concentric-lines" viewBox="0 0 100 100" aria-hidden="true">
-            <circle cx="50" cy="50" r="45" /><circle cx="50" cy="50" r="32" /><circle cx="50" cy="50" r="20" />
+            <circle cx="50" cy="50" r="45" /><circle cx="50" cy="50" r="20" />
             {cms.connections.map((connection) => {
               const from = positions.get(connection.from);
               const to = positions.get(connection.to);
@@ -262,12 +260,11 @@ export function InquiryTree() {
               return <g key={`${connection.from}-${connection.to}`}><line className="claim-connection-halo" x1={from.x} y1={from.y} x2={to.x} y2={to.y} style={{ strokeWidth: strokeWidth + 2.5 }} strokeLinecap="round" vectorEffect="non-scaling-stroke" /><line className="claim-connection-line" x1={from.x} y1={from.y} x2={to.x} y2={to.y} style={{ strokeWidth }} strokeLinecap="round" vectorEffect="non-scaling-stroke" /></g>;
             })}
           </svg>
-          <span className="ring-label ring-label-outer">Specific claims</span><span className="ring-label ring-label-middle">Focused claims</span><span className="ring-label ring-label-inner">Broader claims</span>
+          <span className="ring-label ring-label-outer">Specific claims</span><span className="ring-label ring-label-inner">Broader claims</span>
 
           {specificClaims.map((claim, index) => { const position = point(index, specificClaims.length, 45); return show(claim.id) ? <Link className="tree-claim-node tree-specific-node" href={`/inquiry/list#claim-${claim.id}`} key={claim.id} style={{ left: `${position.x}%`, top: `${position.y}%` }} aria-label={`Open claim ${claim.id}: ${claim.title}`}><span>#{claim.id}</span><b>{claim.title}</b></Link> : null; })}
-          {focusedClaims.map((claim, index) => { const position = point(index, focusedClaims.length, 32, -45); return show(claim.id) ? <Link className="tree-claim-node" href={`/inquiry/list#claim-${claim.id}`} key={claim.id} style={{ left: `${position.x}%`, top: `${position.y}%` }} aria-label={`Open claim ${claim.id}: ${claim.title}`}><span>#{claim.id}</span><b>{claim.title}</b></Link> : null; })}
           {broaderClaims.map((claim, index) => { const position = point(index, broaderClaims.length, 20, -90); return show(claim.id) ? <Link className="tree-conclusion-node" href={`/inquiry/list#claim-${claim.id}`} key={claim.id} style={{ left: `${position.x}%`, top: `${position.y}%` }} aria-label={`Open claim ${claim.id}: ${claim.title}`}><span>#{claim.id}</span><b>{claim.title}</b></Link> : null; })}
-          {show(centralClaim.id) && <Link className="tree-center-node" href={`/inquiry/list#claim-${centralClaim.id}`} aria-label={`Open claim ${centralClaim.id}: ${centralClaim.title}`}><span>#{centralClaim.id}</span><b>Protective.<br />Explainable.<br />Correctable.</b></Link>}
+          {show(centralClaim.id) && <Link className="tree-center-node" href={`/inquiry/list#claim-${centralClaim.id}`} aria-label={`Open claim ${centralClaim.id}: ${centralClaim.title}`}><span>#{centralClaim.id}</span></Link>}
         </div>
           </div>
         </div>
