@@ -1,14 +1,15 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { extname, resolve, sep } from "node:path";
+import { dirname, extname, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
+import { fileURLToPath } from "node:url";
 import { applyAdminSecurityHeaders, handleCmsRequest } from "../server/cms";
 import { applyContributionAdminSecurityHeaders, handleContributionRequest } from "../server/contributions";
 import { importCloudflareData, migrationRequestAuthorized } from "./import-cloudflare";
 import { getHostingerRuntime } from "./mysql";
 
-const STATIC_ROOT = resolve(process.cwd(), "out");
+const STATIC_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "out");
 const MIME_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".csv": "text/csv; charset=utf-8",
