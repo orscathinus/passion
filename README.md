@@ -20,9 +20,11 @@ database, so publication never depends on a second domain or deployment.
 The two build targets remain separate until the Hostinger deployment and data
 transfer are verified:
 
-- `npm run build` emits the Cloudflare/Sites Worker rollback copy under `dist/`.
+- `npm run build` runs the Hostinger build that hPanel detects automatically.
 - `npm run build:hostinger` emits the static public site under `out/` and the
   Hostinger Node entry point at `hostinger-dist/server.mjs`.
+- `npm run build:sites` emits the Cloudflare/Sites Worker rollback copy under
+  `dist/`.
 - `npm start` starts the Hostinger server on Hostinger's injected `PORT`.
 - `npm run start:sites` starts the Cloudflare/Vinext build locally.
 
@@ -38,7 +40,9 @@ See [HOSTINGER-MIGRATION.md](HOSTINGER-MIGRATION.md) for the cutover checklist.
 
 ## Cloudflare rollback lifecycle
 
-The Sites lifecycle CLI runs the locked dependency install before returning this checkout. Edit the source under `app/`, then checkpoint when a coherent milestone is ready to inspect or share. The remote Sites builder runs `npm run build` against the pushed commit. Do not repeat install or build as a normal pre-checkpoint step.
+The Cloudflare rollback source remains in the existing Sites deployment while
+this Hostinger branch is tested. Use `npm run build:sites` only when rebuilding
+that rollback artifact locally.
 
 This project does not use a separate `wrangler.jsonc`; the hosting manifest and
 deployment control plane provide the Worker bindings.
@@ -123,8 +127,9 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 
 - `npm run install:ci`: perform the one bounded lockfile install
 - `npm run dev`: start the Vite/Vinext development server
-- `npm run build`: build and validate the deployable Sites artifact
+- `npm run build`: build the Hostinger static site and Node server
 - `npm run build:hostinger`: build the Hostinger static site and Node server
+- `npm run build:sites`: build and validate the Cloudflare/Sites rollback artifact
 - `npm start`: start the built Hostinger application
 - `npm run start:sites`: start the built Vinext rollback application
 - `npm test`: build, validate, and verify the rendered development-preview metadata
