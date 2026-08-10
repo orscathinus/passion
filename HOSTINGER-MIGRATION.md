@@ -12,21 +12,24 @@ password available for the Web App setup. Do not put those values in GitHub.
 
 ## 2. Configure the Web App
 
-Import `orscathinus/passion` from GitHub and deploy the `main` branch with:
+Import `orscathinus/passion` from GitHub and deploy the
+`hostinger-migration` branch with:
 
 | Setting | Value |
 | --- | --- |
+| Framework preset | Other |
 | Node.js version | 22 |
 | Root directory | `/` |
 | Install command | `npm install` |
-| Build command | `npm run build:hostinger` |
+| Build command | `npm run build` |
 | Start command | `npm start` |
-| Output directory | `out` |
-| Entry file, if requested | `hostinger-dist/server.mjs` |
+| Output directory | `hostinger-dist` |
+| Entry file | `server.mjs` |
 
-If Hostinger auto-detects Next.js, edit the build command before deployment. A
-plain `npm run build` intentionally builds the temporary Cloudflare rollback
-copy, not the Hostinger app.
+Choose **Other** instead of Hostinger's auto-detected Next.js preset. AllegoryNow
+uses a custom Node entry point so the public site, administrator page, APIs, and
+database remain in one application. The build packages that server and all
+static pages together under `hostinger-dist/`.
 
 ## 3. Add production environment variables
 
