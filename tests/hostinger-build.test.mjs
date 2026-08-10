@@ -46,7 +46,8 @@ test("the Hostinger seed matches the current published CMS generation", async ()
 
 test("Hostinger deployment scripts keep the Cloudflare backup build separate", async () => {
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-  assert.equal(packageJson.scripts.build, "bash scripts/build-verified.sh");
+  assert.equal(packageJson.scripts.build, "npm run build:hostinger");
+  assert.equal(packageJson.scripts["build:sites"], "bash scripts/build-verified.sh");
   assert.equal(packageJson.scripts["build:hostinger"], "node scripts/build-hostinger.mjs");
   assert.equal(packageJson.scripts.start, "node hostinger-dist/server.mjs");
 });
