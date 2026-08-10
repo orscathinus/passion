@@ -28,10 +28,22 @@ test("the Hostinger export contains every public route and administrator asset",
   for (const path of expected) assert.equal(await exists(path), true, `Missing ${path}`);
 });
 
+test("the Hostinger deployment directory is self-contained", async () => {
+  const expected = [
+    "../hostinger-dist/server.mjs",
+    "../hostinger-dist/out/index.html",
+    "../hostinger-dist/out/admin/index.html",
+    "../hostinger-dist/out/admin/admin.js",
+    "../hostinger-dist/out/hero-road.png",
+  ];
+  for (const path of expected) assert.equal(await exists(path), true, `Missing ${path}`);
+});
+
 test("the Hostinger server is a Node and MySQL artifact, not a Worker artifact", async () => {
   const server = await readFile(new URL("../hostinger-dist/server.mjs", import.meta.url), "utf8");
   assert.match(server, /AllegoryNow is listening on port/);
   assert.match(server, /api\/_migration\/import/);
+  assert.match(server, /fileURLToPath\(import\.meta\.url\)/);
   assert.doesNotMatch(server, /cloudflare:workers/);
   assert.doesNotMatch(server, /CANONICAL_CMS_ORIGIN|NEXT_PUBLIC_CMS_API/);
 });
