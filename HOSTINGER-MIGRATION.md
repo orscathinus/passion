@@ -29,7 +29,9 @@ Import `orscathinus/passion` from GitHub and deploy the
 Choose **Other** instead of Hostinger's auto-detected Next.js preset. AllegoryNow
 uses a custom Node entry point so the public site, administrator page, APIs, and
 database remain in one application. The build packages that server and all
-static pages together under `hostinger-dist/`.
+static pages together under `hostinger-dist/`. The entry bundle also contains
+its runtime packages and begins listening before it initializes MySQL, matching
+Hostinger's startup check.
 
 ## 3. Add production environment variables
 
