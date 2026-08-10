@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import test from "node:test";
 
 async function exists(path) {
@@ -44,8 +45,43 @@ test("the Hostinger server is a Node and MySQL artifact, not a Worker artifact",
   assert.match(server, /AllegoryNow is listening on port/);
   assert.match(server, /api\/_migration\/import/);
   assert.match(server, /fileURLToPath\(import\.meta\.url\)/);
+  assert.doesNotMatch(server, /from ["']mysql2\/promise["']/);
   assert.doesNotMatch(server, /cloudflare:workers/);
   assert.doesNotMatch(server, /CANONICAL_CMS_ORIGIN|NEXT_PUBLIC_CMS_API/);
+});
+
+test("the Hostinger server starts before MySQL is initialized", async (context) => {
+  const port = 32000 + Math.floor(Math.random() * 1000);
+  const child = spawn(process.execPath, ["hostinger-dist/server.mjs"], {
+    cwd: new URL("..", import.meta.url),
+    env: {
+      PATH: process.env.PATH,
+      PORT: String(port),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  context.after(() => child.kill("SIGTERM"));
+
+  await new Promise((resolvePromise, reject) => {
+    const timer = setTimeout(() => reject(new Error("The Hostinger server did not start in time.")), 5000);
+    child.once("exit", (code) => {
+      clearTimeout(timer);
+      reject(new Error(`The Hostinger server exited during startup (${code}).`));
+    });
+    child.stdout.on("data", (chunk) => {
+      if (!chunk.toString().includes("AllegoryNow is listening")) return;
+      clearTimeout(timer);
+      resolvePromise();
+    });
+  });
+
+  const health = await fetch(`http://127.0.0.1:${port}/healthz`);
+  assert.equal(health.status, 200);
+  assert.deepEqual(await health.json(), { ok: true });
+
+  const home = await fetch(`http://127.0.0.1:${port}/`);
+  assert.equal(home.status, 200);
+  assert.match(await home.text(), /AllegoryNow/);
 });
 
 test("the Hostinger seed matches the current published CMS generation", async () => {
