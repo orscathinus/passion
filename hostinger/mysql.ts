@@ -244,7 +244,8 @@ export type HostingerRuntime = {
 let runtimePromise: Promise<HostingerRuntime> | undefined;
 
 export function getHostingerRuntime() {
-  runtimePromise ??= (async () => {
+  if (runtimePromise) return runtimePromise;
+  const initializing = (async () => {
     const pool = createPool({
       ...databaseConfig(),
       charset: "utf8mb4",
@@ -266,5 +267,9 @@ export function getHostingerRuntime() {
       pool,
     };
   })();
-  return runtimePromise;
+  runtimePromise = initializing;
+  initializing.catch(() => {
+    if (runtimePromise === initializing) runtimePromise = undefined;
+  });
+  return initializing;
 }
