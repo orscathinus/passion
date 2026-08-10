@@ -38,7 +38,7 @@ const MIME_TYPES: Record<string, string> = {
   ".xml": "application/xml; charset=utf-8",
 };
 
-const runtime = await getHostingerRuntime();
+let activeRuntime: Awaited<ReturnType<typeof getHostingerRuntime>> | undefined;
 
 const server = createServer(async (incoming, outgoing) => {
   try {
@@ -56,6 +56,7 @@ const server = createServer(async (incoming, outgoing) => {
         return;
       }
       try {
+        const runtime = await runtimeForRequest();
         const result = await importCloudflareData(runtime);
         await sendWebResponse(outgoing, Response.json({ ok: true, ...result }), request.method);
       } catch (error) {
@@ -65,13 +66,18 @@ const server = createServer(async (incoming, outgoing) => {
       return;
     }
 
-    const contributionResponse = await handleContributionRequest(request, runtime);
+    // Hostinger checks that the process is listening immediately after launch.
+    // Initialize MySQL only for API requests so a slow or temporarily unavailable
+    // database cannot make the otherwise healthy Node process fail its startup check.
+    const runtime = url.pathname.startsWith("/api/") ? await runtimeForRequest() : undefined;
+
+    const contributionResponse = runtime ? await handleContributionRequest(request, runtime) : null;
     if (contributionResponse) {
       await sendWebResponse(outgoing, applyAdminSecurityHeaders(request, applyContributionAdminSecurityHeaders(request, contributionResponse)), request.method);
       return;
     }
 
-    const cmsResponse = await handleCmsRequest(request, runtime);
+    const cmsResponse = runtime ? await handleCmsRequest(request, runtime) : null;
     if (cmsResponse) {
       await sendWebResponse(outgoing, applyAdminSecurityHeaders(request, cmsResponse), request.method);
       return;
@@ -94,7 +100,20 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("PORT m
 server.listen(port, "0.0.0.0", () => console.log(`AllegoryNow is listening on port ${port}.`));
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, () => server.close(() => runtime.pool.end().finally(() => process.exit(0))));
+  process.on(signal, () => {
+    server.close(() => {
+      if (!activeRuntime) {
+        process.exit(0);
+        return;
+      }
+      activeRuntime.pool.end().catch((error) => console.error("MySQL shutdown failed", error)).finally(() => process.exit(0));
+    });
+  });
+}
+
+async function runtimeForRequest() {
+  activeRuntime ??= await getHostingerRuntime();
+  return activeRuntime;
 }
 
 function webRequest(incoming: IncomingMessage) {
