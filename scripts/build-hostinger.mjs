@@ -11,12 +11,14 @@ await run(process.execPath, ["node_modules/next/dist/bin/next", "build"], {
 });
 
 await build({
+  banner: {
+    js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);',
+  },
   bundle: true,
   entryPoints: ["hostinger/server.ts"],
   format: "esm",
   logLevel: "info",
   outfile: "hostinger-dist/server.mjs",
-  packages: "external",
   platform: "node",
   sourcemap: true,
   target: "node22",
