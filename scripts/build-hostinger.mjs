@@ -1,4 +1,4 @@
-import { rm } from "node:fs/promises";
+import { cp, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { build } from "esbuild";
 
@@ -21,6 +21,11 @@ await build({
   sourcemap: true,
   target: "node22",
 });
+
+// Hostinger deploys one output directory. Keep the Node entry point and the
+// exported site together so the "Other" framework preset can deploy this as a
+// normal server-side Node application.
+await cp("out", "hostinger-dist/out", { recursive: true });
 
 function run(command, args, env) {
   return new Promise((resolvePromise, reject) => {
