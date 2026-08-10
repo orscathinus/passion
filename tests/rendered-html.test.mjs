@@ -58,3 +58,24 @@ test("the CMS schema stores an unnumbered conclusion", async () => {
   assert.match(inquiry, /level: "Broader" \| "Focused" \| "Specific"/);
   assert.doesNotMatch(inquiry, /level: "Central"/);
 });
+
+test("the production CMS and administrator use only same-origin endpoints", async () => {
+  const runtimeFiles = [
+    "../app/components/CmsProvider.tsx",
+    "../app/components/ContributionForm.tsx",
+    "../public/admin/admin.js",
+    "../public/admin/index.html",
+    "../public/admin/uploads.html",
+    "../public/admin/uploads.js",
+    "../server/cms.ts",
+    "../server/contributions.ts",
+    "../worker/index.ts",
+  ];
+  const sources = await Promise.all(runtimeFiles.map((path) => readFile(new URL(path, import.meta.url), "utf8")));
+  const runtimeSource = sources.join("\n");
+
+  assert.doesNotMatch(runtimeSource, /chatgpt\.site|pages\.dev|github\.io/);
+  assert.doesNotMatch(runtimeSource, /NEXT_PUBLIC_CMS_API|CANONICAL_CMS/);
+  assert.match(sources[0], /fetch\(cacheBustedUrl\("\/api\/cms\/public"\)/);
+  assert.match(sources[2], /fetch\(`\/api\/cms\/\$\{path\}`/);
+});

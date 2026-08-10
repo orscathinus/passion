@@ -1,16 +1,19 @@
 # AllegoryNow administration guide
 
-The website now has a protected visual editor at `/admin/`. GitHub Pages sends that address to the secure administrator service automatically.
+The website has a protected visual editor in the same application as the public
+site and CMS API.
 
 ## First sign-in
 
-1. Open `https://orscathinus.github.io/passion/admin/`.
-2. Sign in with the authorized ChatGPT account when prompted.
-3. Create an administrator password of at least 16 characters. A four-word passphrase is recommended.
+1. Open `https://allegorynow.org/admin/`.
+2. Enter the administrator password. If the database is new and no password was
+   transferred, create one of at least 16 characters.
+3. A four-word passphrase is recommended.
 4. Select the page you want to edit.
 5. Save a draft, review it, and use **Publish changes** only when it is ready.
 
-The administrator password is an additional layer after account authorization. It is stored only as a salted password hash. Administrator sessions use secure, HTTP-only cookies and expire after one hour.
+The administrator password is stored only as a salted password hash.
+Administrator sessions use secure, HTTP-only cookies and expire after one hour.
 
 The editor includes page writing, the separate unnumbered Central Conclusion, support categories, claims, exhibits, Q&A, contact text, and footer writing. Adding a claim automatically adds it to the relevant Tree and list views after publication.
 
@@ -29,7 +32,8 @@ The editor includes page writing, the separate unnumbered Central Conclusion, su
 | Contact form behavior | `app/components/ContributionForm.tsx` |
 | Colors, spacing, and visual design | `app/globals.css` |
 
-The contribution form opens a prefilled issue in `orscathinus/passion`. Enable GitHub Issues for that repository so visitors can use it.
+On Hostinger, the contribution form stores submission metadata and private file
+bytes in MySQL. Review submissions from **Review submissions** in the editor.
 
 ## Safe update routine
 
@@ -63,7 +67,7 @@ An exhibit is part of the broader project record. It does not automatically prov
 
 ## Safeguards
 
-- Require both the authorized account and administrator password.
+- Require the administrator password for every editor session.
 - Check authorization on the server for every save and publication.
 - Keep drafts separate from the public version.
 - Require a confirmation step before publishing.
@@ -72,4 +76,8 @@ An exhibit is part of the broader project record. It does not automatically prov
 - Record an audit trail.
 - Never expose administrator keys in browser code.
 
-The editor accepts writing and links. PDF or image uploads still belong in the repository so private or sealed material is never accidentally published through a one-click upload.
+The editor accepts writing and links. Public exhibit PDFs or images still
+belong in the repository so private or sealed material is never accidentally
+published through a one-click upload. Visitor contribution files remain
+private in R2 until an administrator deliberately reviews and publishes
+anything derived from them.

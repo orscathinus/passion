@@ -11,9 +11,10 @@ function normalizeNumber(value: string) {
 
 export function ExhibitBrowser() {
   const document = useCmsDocument();
-  const exhibits = Array.isArray(document?.exhibits?.items)
-    ? document.exhibits.items
-    : [];
+  const exhibits = useMemo(
+    () => Array.isArray(document?.exhibits?.items) ? document.exhibits.items : [],
+    [document],
+  );
   const [query, setQuery] = useState("");
   const searchNumber = normalizeNumber(query);
   const searching = query.trim().length > 0;

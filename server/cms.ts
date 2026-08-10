@@ -1,9 +1,11 @@
 import { CENTRAL_CONCLUSION_ID, defaultCmsDocument, type CmsDocument } from "../app/data/cms";
 import { derivePassword } from "./password";
+import { configuredAdminEmail, requestAddress, type AdminAuthMode, type SqlDatabase } from "./persistence";
 
 export type CmsEnv = {
+  ADMIN_AUTH_MODE?: AdminAuthMode;
   ADMIN_EMAILS?: string;
-  DB: D1Database;
+  DB: SqlDatabase;
 };
 
 type SessionRow = {
@@ -40,11 +42,6 @@ const COMMENT_RATE_WINDOW_SECONDS = 10 * 60;
 const COMMENT_RATE_MAXIMUM = 5;
 const COMMENT_MINIMUM_INTERVAL_SECONDS = 8;
 const COMMENT_MAXIMUM_REPLY_DEPTH = 3;
-const PUBLIC_ORIGINS = new Set([
-  "https://orscathinus.github.io",
-  "https://passion-4mg.pages.dev",
-]);
-
 export async function handleCmsRequest(request: Request, env: CmsEnv): Promise<Response | null> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith("/api/cms/")) return null;
@@ -53,7 +50,7 @@ export async function handleCmsRequest(request: Request, env: CmsEnv): Promise<R
     await ensureDatabase(env.DB);
 
     if (url.pathname === "/api/cms/public" && request.method === "GET") {
-      return publicDocument(request, env.DB);
+      return publicDocument(env.DB);
     }
 
     if (url.pathname === "/api/cms/comments" && request.method === "OPTIONS") {
@@ -103,13 +100,17 @@ export async function handleCmsRequest(request: Request, env: CmsEnv): Promise<R
     const message = error instanceof CmsValidationError ? error.message : "The editor service could not complete that request.";
     const status = error instanceof CmsValidationError ? 400 : 500;
     const response = json({ error: message }, status);
-    return url.pathname === "/api/cms/comments" ? applyPublicCors(request, response) : response;
+    return url.pathname === "/api/cms/comments" ? applyPublicResponse(response) : response;
   }
 }
 
 export function applyAdminSecurityHeaders(request: Request, response: Response): Response {
   const pathname = new URL(request.url).pathname;
-  if (!pathname.startsWith("/admin") && !pathname.startsWith("/api/cms/admin/")) return response;
+  if (
+    !pathname.startsWith("/admin") &&
+    !pathname.startsWith("/api/cms/admin/") &&
+    !pathname.startsWith("/api/contributions/admin")
+  ) return response;
 
   const secured = new Response(response.body, response);
   secured.headers.set("Cache-Control", "no-store");
@@ -124,7 +125,7 @@ export function applyAdminSecurityHeaders(request: Request, response: Response):
   return secured;
 }
 
-async function ensureDatabase(db: D1Database) {
+async function ensureDatabase(db: SqlDatabase) {
   await db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS cms_documents (id INTEGER PRIMARY KEY, draft_json TEXT NOT NULL, published_json TEXT NOT NULL, draft_version INTEGER NOT NULL DEFAULT 1, published_version INTEGER NOT NULL DEFAULT 1, updated_at INTEGER NOT NULL)"),
     db.prepare("CREATE TABLE IF NOT EXISTS cms_versions (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, version INTEGER NOT NULL, document_json TEXT NOT NULL, actor_email TEXT NOT NULL, created_at INTEGER NOT NULL)"),
@@ -149,28 +150,23 @@ async function ensureDatabase(db: D1Database) {
   await db.prepare("DELETE FROM login_attempts WHERE created_at <= ?").bind(now() - 86400).run();
 }
 
-async function publicDocument(request: Request, db: D1Database) {
+async function publicDocument(db: SqlDatabase) {
   const row = await documentRow(db);
   const response = json({ document: safeStoredDocument(row.published_json), version: row.published_version }, 200, {
     "Cache-Control": "no-store",
   });
-  const origin = request.headers.get("Origin");
-  if (origin && PUBLIC_ORIGINS.has(origin)) {
-    response.headers.set("Access-Control-Allow-Origin", origin);
-    response.headers.set("Vary", "Origin");
-  }
-  response.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+  response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
   return response;
 }
 
-async function publicComments(request: Request, db: D1Database) {
+async function publicComments(request: Request, db: SqlDatabase) {
   const exhibitNo = commentText(new URL(request.url).searchParams.get("exhibit"), "Exhibit number", 1, 20, true);
   const results = await db.prepare("SELECT id, exhibit_no, parent_id, author_name, body, status, created_at FROM exhibit_comments WHERE exhibit_no = ? ORDER BY created_at ASC, id ASC LIMIT 500")
     .bind(exhibitNo).all<CommentRow>();
   const rows = results.results ?? [];
   const rowsById = new Map(rows.map((comment) => [comment.id, comment]));
   const comments = rows.filter((comment) => commentAndAncestorsAreVisible(comment, rowsById)).map(publicComment);
-  return applyPublicCors(request, json({ comments }, 200, { "Cache-Control": "no-store" }));
+  return applyPublicResponse(json({ comments }, 200, { "Cache-Control": "no-store" }));
 }
 
 function commentAndAncestorsAreVisible(comment: CommentRow, rowsById: Map<string, CommentRow>) {
@@ -184,12 +180,12 @@ function commentAndAncestorsAreVisible(comment: CommentRow, rowsById: Map<string
   return true;
 }
 
-async function createPublicComment(request: Request, db: D1Database) {
+async function createPublicComment(request: Request, db: SqlDatabase) {
   requirePublicWriteOrigin(request);
   const body = await readBody<{ authorName?: unknown; body?: unknown; exhibitNo?: unknown; parentId?: unknown; website?: unknown }>(request);
 
   if (typeof body.website === "string" && body.website.trim()) {
-    return applyPublicCors(request, json({ ok: true }, 201));
+    return applyPublicResponse(json({ ok: true }, 201));
   }
 
   const exhibitNo = commentText(body.exhibitNo, "Exhibit number", 1, 20, true);
@@ -206,7 +202,7 @@ async function createPublicComment(request: Request, db: D1Database) {
 
   if (parentId) await validateReplyTarget(db, parentId, exhibitNo);
 
-  const visitorAddress = request.headers.get("cf-connecting-ip") ?? "unknown";
+  const visitorAddress = requestAddress(request);
   const visitorAgent = (request.headers.get("user-agent") ?? "unknown").slice(0, 200);
   const ipHash = await sha256(`exhibit-comment|${visitorAddress}|${visitorAgent}`);
   const timestamp = now();
@@ -214,10 +210,10 @@ async function createPublicComment(request: Request, db: D1Database) {
     .bind(ipHash, timestamp - COMMENT_RATE_WINDOW_SECONDS).first<{ count: number; latest: number | null }>();
 
   if ((recent?.latest ?? 0) > timestamp - COMMENT_MINIMUM_INTERVAL_SECONDS) {
-    return applyPublicCors(request, json({ error: "Please wait a few seconds before posting again." }, 429, { "Retry-After": String(COMMENT_MINIMUM_INTERVAL_SECONDS) }));
+    return applyPublicResponse(json({ error: "Please wait a few seconds before posting again." }, 429, { "Retry-After": String(COMMENT_MINIMUM_INTERVAL_SECONDS) }));
   }
   if ((recent?.count ?? 0) >= COMMENT_RATE_MAXIMUM) {
-    return applyPublicCors(request, json({ error: "You have posted several comments recently. Please try again in about ten minutes." }, 429, { "Retry-After": String(COMMENT_RATE_WINDOW_SECONDS) }));
+    return applyPublicResponse(json({ error: "You have posted several comments recently. Please try again in about ten minutes." }, 429, { "Retry-After": String(COMMENT_RATE_WINDOW_SECONDS) }));
   }
 
   const comment: CommentRow = {
@@ -232,10 +228,10 @@ async function createPublicComment(request: Request, db: D1Database) {
   await db.prepare("INSERT INTO exhibit_comments (id, exhibit_no, parent_id, author_name, body, status, ip_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'visible', ?, ?, ?)")
     .bind(comment.id, comment.exhibit_no, comment.parent_id, comment.author_name, comment.body, ipHash, timestamp, timestamp).run();
 
-  return applyPublicCors(request, json({ comment: publicComment(comment) }, 201));
+  return applyPublicResponse(json({ comment: publicComment(comment) }, 201));
 }
 
-async function validateReplyTarget(db: D1Database, parentId: string, exhibitNo: string) {
+async function validateReplyTarget(db: SqlDatabase, parentId: string, exhibitNo: string) {
   let cursor: string | null = parentId;
   let depth = 0;
 
@@ -266,7 +262,7 @@ function publicComment(comment: CommentRow) {
 
 function commentCorsPreflight(request: Request) {
   requirePublicWriteOrigin(request);
-  return applyPublicCors(request, new Response(null, {
+  return applyPublicResponse(new Response(null, {
     status: 204,
     headers: {
       "Access-Control-Allow-Headers": "Content-Type",
@@ -276,25 +272,20 @@ function commentCorsPreflight(request: Request) {
   }));
 }
 
-function applyPublicCors(request: Request, response: Response) {
-  const origin = request.headers.get("Origin");
-  if (origin && isPublicOrigin(request, origin)) {
-    response.headers.set("Access-Control-Allow-Origin", origin);
-    response.headers.set("Vary", "Origin");
-  }
-  response.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+function applyPublicResponse(response: Response) {
+  response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
   return response;
 }
 
 function requirePublicWriteOrigin(request: Request) {
   const origin = request.headers.get("Origin");
   if (!origin || !isPublicOrigin(request, origin)) {
-    throw new CmsValidationError("This comment did not come from an approved AllegoryNow website.");
+    throw new CmsValidationError("This comment did not come from AllegoryNow.");
   }
 }
 
 function isPublicOrigin(request: Request, origin: string) {
-  return origin === new URL(request.url).origin || PUBLIC_ORIGINS.has(origin);
+  return origin === new URL(request.url).origin;
 }
 
 function commentText(value: unknown, label: string, minimum: number, maximum: number, singleLine: boolean) {
@@ -306,13 +297,13 @@ function commentText(value: unknown, label: string, minimum: number, maximum: nu
   return normalized;
 }
 
-async function adminComments(db: D1Database) {
+async function adminComments(db: SqlDatabase) {
   const results = await db.prepare("SELECT id, exhibit_no, parent_id, author_name, body, status, created_at FROM exhibit_comments ORDER BY created_at DESC, id DESC LIMIT 500")
     .all<CommentRow>();
   return json({ comments: (results.results ?? []).map((comment) => ({ ...publicComment(comment), status: comment.status })) });
 }
 
-async function moderateComment(request: Request, db: D1Database, email: string) {
+async function moderateComment(request: Request, db: SqlDatabase, email: string) {
   requireSameOrigin(request);
   const session = await requireSessionAndCsrf(request, db, email);
   if (session instanceof Response) return session;
@@ -328,6 +319,11 @@ async function moderateComment(request: Request, db: D1Database, email: string) 
 }
 
 function requireAdminIdentity(request: Request, env: CmsEnv): string | Response {
+  if (env.ADMIN_AUTH_MODE === "password") {
+    const email = configuredAdminEmail(env.ADMIN_EMAILS);
+    return email || json({ error: "Administrator access has not been configured." }, 503);
+  }
+
   const email = request.headers.get("oai-authenticated-user-email")?.trim().toLowerCase();
   if (!email) {
     const returnTo = encodeURIComponent("/admin/index.html");
@@ -340,7 +336,7 @@ function requireAdminIdentity(request: Request, env: CmsEnv): string | Response 
   return email;
 }
 
-async function adminState(request: Request, db: D1Database, email: string) {
+async function adminState(request: Request, db: SqlDatabase, email: string) {
   const session = await findSession(request, db, email);
   const credential = await db.prepare("SELECT email FROM admin_credentials WHERE email = ?").bind(email).first<{ email: string }>();
   if (!session) return json({ authenticated: false, needsSetup: !credential });
@@ -355,7 +351,7 @@ async function adminState(request: Request, db: D1Database, email: string) {
   });
 }
 
-async function setupPassword(request: Request, db: D1Database, email: string) {
+async function setupPassword(request: Request, db: SqlDatabase, email: string) {
   requireSameOrigin(request);
   const existing = await db.prepare("SELECT email FROM admin_credentials WHERE email = ?").bind(email).first();
   if (existing) return json({ error: "The administrator password has already been created." }, 409);
@@ -371,11 +367,11 @@ async function setupPassword(request: Request, db: D1Database, email: string) {
   return createSessionResponse(db, email, 201);
 }
 
-async function login(request: Request, db: D1Database, email: string) {
+async function login(request: Request, db: SqlDatabase, email: string) {
   requireSameOrigin(request);
   const body = await readBody<{ password?: unknown }>(request);
   const password = typeof body.password === "string" ? body.password : "";
-  const subjectHash = await sha256(`${email}|${request.headers.get("cf-connecting-ip") ?? "unknown"}`);
+  const subjectHash = await sha256(`${email}|${requestAddress(request)}`);
   const since = now() - LOGIN_WINDOW_SECONDS;
   const failures = await db.prepare("SELECT COUNT(*) AS count FROM login_attempts WHERE subject_hash = ? AND success = 0 AND created_at > ?")
     .bind(subjectHash, since).first<{ count: number }>();
@@ -395,7 +391,7 @@ async function login(request: Request, db: D1Database, email: string) {
   return createSessionResponse(db, email);
 }
 
-async function saveDraft(request: Request, db: D1Database, email: string) {
+async function saveDraft(request: Request, db: SqlDatabase, email: string) {
   requireSameOrigin(request);
   const session = await requireSessionAndCsrf(request, db, email);
   if (session instanceof Response) return session;
@@ -415,7 +411,7 @@ async function saveDraft(request: Request, db: D1Database, email: string) {
   return json({ ok: true, draftVersion: nextVersion, csrfToken: session.csrf_token });
 }
 
-async function publish(request: Request, db: D1Database, email: string) {
+async function publish(request: Request, db: SqlDatabase, email: string) {
   requireSameOrigin(request);
   const session = await requireSessionAndCsrf(request, db, email);
   if (session instanceof Response) return session;
@@ -434,7 +430,7 @@ async function publish(request: Request, db: D1Database, email: string) {
   return json({ ok: true, publishedVersion: nextPublished, csrfToken: session.csrf_token });
 }
 
-async function logout(request: Request, db: D1Database, email: string) {
+async function logout(request: Request, db: SqlDatabase, email: string) {
   requireSameOrigin(request);
   const session = await requireSessionAndCsrf(request, db, email);
   if (session instanceof Response) return session;
@@ -444,7 +440,7 @@ async function logout(request: Request, db: D1Database, email: string) {
   return response;
 }
 
-async function requireSessionAndCsrf(request: Request, db: D1Database, email: string): Promise<SessionRow | Response> {
+async function requireSessionAndCsrf(request: Request, db: SqlDatabase, email: string): Promise<SessionRow | Response> {
   const session = await findSession(request, db, email);
   if (!session) return json({ error: "Your administrator session expired. Sign in again." }, 401);
   const supplied = request.headers.get("x-allegory-csrf") ?? "";
@@ -452,7 +448,7 @@ async function requireSessionAndCsrf(request: Request, db: D1Database, email: st
   return session;
 }
 
-async function findSession(request: Request, db: D1Database, email: string): Promise<SessionRow | null> {
+async function findSession(request: Request, db: SqlDatabase, email: string): Promise<SessionRow | null> {
   const rawToken = readCookie(request.headers.get("Cookie") ?? "", COOKIE_NAME);
   if (!rawToken) return null;
   const tokenHash = await sha256(rawToken);
@@ -463,7 +459,7 @@ async function findSession(request: Request, db: D1Database, email: string): Pro
   return session;
 }
 
-async function createSessionResponse(db: D1Database, email: string, status = 200) {
+async function createSessionResponse(db: SqlDatabase, email: string, status = 200) {
   const rawToken = randomToken(32);
   const tokenHash = await sha256(rawToken);
   const csrfToken = randomToken(24);
@@ -476,7 +472,7 @@ async function createSessionResponse(db: D1Database, email: string, status = 200
   return response;
 }
 
-async function documentRow(db: D1Database): Promise<DocumentRow> {
+async function documentRow(db: SqlDatabase): Promise<DocumentRow> {
   const row = await db.prepare("SELECT draft_json, published_json, draft_version, published_version FROM cms_documents WHERE id = 1").first<DocumentRow>();
   if (!row) throw new Error("CMS document is unavailable");
   return row;
@@ -704,7 +700,7 @@ function readCookie(cookieHeader: string, name: string) {
   return "";
 }
 
-async function audit(db: D1Database, email: string, action: string, details: string) {
+async function audit(db: SqlDatabase, email: string, action: string, details: string) {
   await db.prepare("INSERT INTO audit_log (actor_email, action, details, created_at) VALUES (?, ?, ?, ?)").bind(email, action, details, now()).run();
 }
 

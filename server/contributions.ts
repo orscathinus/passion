@@ -1,3 +1,5 @@
+import { configuredAdminEmail, requestAddress, type AdminAuthMode, type ObjectStore, type SqlDatabase } from "./persistence";
+
 const COOKIE_NAME = "__Host-allegory_admin";
 const MAX_FILES = 5;
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
@@ -11,9 +13,10 @@ const ALLOWED_EXTENSIONS = new Set([
 ]);
 
 export type ContributionEnv = {
+  ADMIN_AUTH_MODE?: AdminAuthMode;
   ADMIN_EMAILS?: string;
-  DB: D1Database;
-  UPLOADS: R2Bucket;
+  DB: SqlDatabase;
+  UPLOADS: ObjectStore;
 };
 
 type SessionRow = {
@@ -83,6 +86,7 @@ export async function handleContributionRequest(request: Request, env: Contribut
     }
 
     if (url.pathname === "/api/contributions" && request.method === "POST") {
+      requirePublicOrigin(request);
       return createContribution(request, env);
     }
 
@@ -122,7 +126,7 @@ export async function handleContributionRequest(request: Request, env: Contribut
   }
 }
 
-async function ensureDatabase(db: D1Database) {
+async function ensureDatabase(db: SqlDatabase) {
   await db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS admin_sessions (token_hash TEXT PRIMARY KEY, email TEXT NOT NULL, csrf_token TEXT NOT NULL, expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL)"),
     db.prepare("CREATE INDEX IF NOT EXISTS admin_sessions_expiry_idx ON admin_sessions (expires_at)"),
@@ -162,7 +166,7 @@ async function createContribution(request: Request, env: ContributionEnv) {
   if (totalBytes > MAX_TOTAL_BYTES) throw new ContributionValidationError("The combined files are too large. Keep the total under 40 MB.");
   files.forEach(validateFile);
 
-  const visitorAddress = request.headers.get("cf-connecting-ip") ?? "unknown";
+  const visitorAddress = requestAddress(request);
   const visitorAgent = (request.headers.get("user-agent") ?? "unknown").slice(0, 200);
   const ipHash = await sha256(`contribution|${visitorAddress}|${visitorAgent}`);
   const timestamp = now();
@@ -214,7 +218,7 @@ function validateFile(file: File) {
   }
 }
 
-async function listContributions(db: D1Database, csrfToken: string) {
+async function listContributions(db: SqlDatabase, csrfToken: string) {
   const submissionsResult = await db.prepare("SELECT id, contributor_name, contributor_email, mode, claim_id, position, proposed_title, proposed_statement, evidence, explanation, status, created_at FROM contribution_submissions ORDER BY created_at DESC LIMIT 200")
     .all<SubmissionRow>();
   const filesResult = await db.prepare("SELECT id, submission_id, object_key, original_name, content_type, size_bytes, created_at FROM contribution_files ORDER BY created_at ASC")
@@ -268,7 +272,7 @@ async function downloadFile(env: ContributionEnv, fileId: string) {
   return new Response(object.body, { headers });
 }
 
-async function updateStatus(request: Request, db: D1Database, email: string, csrfToken: string) {
+async function updateStatus(request: Request, db: SqlDatabase, email: string, csrfToken: string) {
   requireSameOrigin(request);
   const body = await readJson<{ submissionId?: unknown; status?: unknown }>(request);
   const submissionId = text(body.submissionId, 1, 80, true);
@@ -296,6 +300,11 @@ async function deleteContribution(request: Request, env: ContributionEnv, email:
 }
 
 function requireAdminIdentity(request: Request, env: ContributionEnv): string | Response {
+  if (env.ADMIN_AUTH_MODE === "password") {
+    const email = configuredAdminEmail(env.ADMIN_EMAILS);
+    return email || json({ error: "Administrator access has not been configured." }, 503);
+  }
+
   const email = request.headers.get("oai-authenticated-user-email")?.trim().toLowerCase();
   if (!email) {
     const returnTo = encodeURIComponent("/admin/uploads.html");
@@ -307,7 +316,7 @@ function requireAdminIdentity(request: Request, env: ContributionEnv): string | 
   return email;
 }
 
-async function requireAdminSession(request: Request, db: D1Database, email: string, requireCsrf: boolean): Promise<SessionRow | Response> {
+async function requireAdminSession(request: Request, db: SqlDatabase, email: string, requireCsrf: boolean): Promise<SessionRow | Response> {
   const rawToken = readCookie(request.headers.get("Cookie") ?? "", COOKIE_NAME);
   if (!rawToken) return json({ error: "Unlock the website editor before reviewing contributions." }, 401);
   const tokenHash = await sha256(rawToken);
@@ -358,6 +367,13 @@ function requireSameOrigin(request: Request) {
   if (!origin || origin !== new URL(request.url).origin) throw new ContributionValidationError("This request did not come from the administrator page.");
 }
 
+function requirePublicOrigin(request: Request) {
+  const origin = request.headers.get("Origin");
+  if (!origin || origin !== new URL(request.url).origin) {
+    throw new ContributionValidationError("This contribution did not come from AllegoryNow.");
+  }
+}
+
 async function sha256(value: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return toBase64Url(new Uint8Array(digest));
@@ -384,13 +400,12 @@ function readCookie(cookieHeader: string, name: string) {
   return "";
 }
 
-async function audit(db: D1Database, email: string, action: string, details: string) {
+async function audit(db: SqlDatabase, email: string, action: string, details: string) {
   await db.prepare("INSERT INTO audit_log (actor_email, action, details, created_at) VALUES (?, ?, ?, ?)").bind(email, action, details, now()).run();
 }
 
 function publicCors(response: Response) {
-  response.headers.set("Access-Control-Allow-Origin", "*");
-  response.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+  response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
   return response;
 }
 

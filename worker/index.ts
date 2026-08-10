@@ -3,12 +3,14 @@ import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } fr
 import handler from "vinext/server/app-router-entry";
 import { applyAdminSecurityHeaders, handleCmsRequest } from "../server/cms";
 import { applyContributionAdminSecurityHeaders, handleContributionRequest } from "../server/contributions";
+import { handleMigrationExport } from "../server/migration";
 
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
   UPLOADS: R2Bucket;
   ADMIN_EMAILS?: string;
+  MIGRATION_TOKEN?: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -29,55 +31,19 @@ interface ExecutionContext {
 // dangerouslyAllowSVG: true in next.config.js and uncomment below:
 // const imageConfig: ImageConfig = { dangerouslyAllowSVG: true };
 
-const CANONICAL_CMS_ORIGIN = "https://allegorynow.thirtytwo32percent.chatgpt.site";
-
-function allowPublicCmsFromAnySite(response: Response) {
-  const publicResponse = new Response(response.body, response);
-  publicResponse.headers.set("Access-Control-Allow-Origin", "*");
-  publicResponse.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
-  publicResponse.headers.set("Cache-Control", "no-store");
-  return publicResponse;
-}
-
-async function canonicalPublicCms(): Promise<Response | null> {
-  try {
-    const response = await fetch(`${CANONICAL_CMS_ORIGIN}/api/cms/public`, {
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) return null;
-    return allowPublicCmsFromAnySite(response);
-  } catch {
-    return null;
-  }
-}
-
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
+    const migrationResponse = await handleMigrationExport(request, env);
+    if (migrationResponse) return applyAdminSecurityHeaders(request, migrationResponse);
+
     const contributionResponse = await handleContributionRequest(request, env);
     if (contributionResponse) return applyAdminSecurityHeaders(request, applyContributionAdminSecurityHeaders(request, contributionResponse));
 
-    if (
-      url.pathname === "/api/cms/public" &&
-      request.method === "GET" &&
-      url.origin !== CANONICAL_CMS_ORIGIN
-    ) {
-      // Cloudflare Pages and custom domains use the same published CMS document
-      // as the administrator page instead of a separate deployment-specific D1 copy.
-      const canonicalResponse = await canonicalPublicCms();
-      if (canonicalResponse) return canonicalResponse;
-    }
-
     const cmsResponse = await handleCmsRequest(request, env);
     if (cmsResponse) {
-      const securedResponse = applyAdminSecurityHeaders(request, cmsResponse);
-      if (url.pathname === "/api/cms/public" && request.method === "GET") {
-        // The published CMS document is intentionally public and is fetched
-        // without credentials by GitHub Pages, Cloudflare Pages, and custom domains.
-        return allowPublicCmsFromAnySite(securedResponse);
-      }
-      return securedResponse;
+      return applyAdminSecurityHeaders(request, cmsResponse);
     }
 
     if (url.pathname === "/_vinext/image") {

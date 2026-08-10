@@ -23,9 +23,8 @@ export function ContributionForm() {
     setNotice("Uploading files and securely submitting your contribution…");
 
     try {
-      // Contributions use a same-origin Cloudflare Pages Function. Keeping this
-      // request on allegorynow.org avoids cross-origin/CORS failures and lets the
-      // Pages project write directly to its private R2 bucket.
+      // The public form, API, D1 metadata, and private R2 files all live in the
+      // same Cloudflare Worker application.
       const response = await fetch("/api/contributions", {
         method: "POST",
         credentials: "same-origin",
@@ -46,7 +45,7 @@ export function ContributionForm() {
       setMode("existing");
     } catch (error) {
       const message = error instanceof TypeError && error.message.toLowerCase().includes("fetch")
-        ? "The contribution service could not be reached. The site administrator needs to verify the Cloudflare Pages Function and R2 binding."
+        ? "The contribution service could not be reached. Please try again shortly."
         : error instanceof Error
           ? error.message
           : "The contribution could not be submitted.";

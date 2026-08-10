@@ -13,22 +13,18 @@
     <div class="review-shell">
       <header class="review-header">
         <a class="brand" href="../"><span aria-hidden="true">A</span><b>AllegoryNow</b></a>
-        <nav><a href="https://allegorynow.thirtytwo32percent.chatgpt.site/admin/index.html">Website editor</a><a href="/" target="_blank" rel="noreferrer">Public site</a></nav>
+        <nav><a href="./index.html">Website editor</a><a href="/" target="_blank" rel="noreferrer">Public site</a></nav>
       </header>
       <main>
         <section class="review-intro">
           <div><p class="kicker">Administrator</p><h1>Contribution review</h1><p>Files are stored privately in Cloudflare R2. They are never published automatically. Download and inspect every file before using it.</p></div>
           <button id="refresh-button" type="button">Refresh</button>
         </section>
-        <section class="admin-token-card" id="admin-token-card">
-          <div><p class="kicker">Private access</p><h2>Unlock contribution review</h2><p>Enter the administrator token configured as the Cloudflare Pages secret <code>CONTRIBUTIONS_ADMIN_TOKEN</code>. The token is kept only in this browser tab.</p></div>
-          <form id="admin-token-form"><label>Administrator token<input id="admin-token" name="token" type="password" autocomplete="current-password" required></label><button type="submit">Unlock submissions</button></form>
-        </section>
         <div class="review-tools" id="review-tools" hidden>
           <label>Status <select id="status-filter"><option value="all">All submissions</option><option value="new">New</option><option value="reviewed">Reviewed</option><option value="archived">Archived</option></select></label>
           <p id="summary"></p>
         </div>
-        <p class="notice" id="notice" role="status" aria-live="polite">Enter the administrator token to load submissions.</p>
+        <p class="notice" id="notice" role="status" aria-live="polite">Checking your administrator session…</p>
         <section class="submission-list" id="submission-list"></section>
       </main>
     </div>

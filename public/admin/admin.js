@@ -1,14 +1,7 @@
 (() => {
   "use strict";
 
-  const SITE_ADMIN_URL = "https://allegorynow.thirtytwo32percent.chatgpt.site/admin/index.html";
-  const SITE_ADMIN_HOST = new URL(SITE_ADMIN_URL).hostname;
   const CENTRAL_CONCLUSION_ID = "central-conclusion";
-  const LOCAL_PREVIEW_HOSTS = new Set(["terminal.local", "localhost"]);
-  if (location.hostname !== SITE_ADMIN_HOST && !LOCAL_PREVIEW_HOSTS.has(location.hostname)) {
-    location.replace(SITE_ADMIN_URL);
-    return;
-  }
 
   const app = document.querySelector("#app");
   const sessionActions = document.querySelector("#session-actions");

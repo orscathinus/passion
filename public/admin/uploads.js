@@ -6,12 +6,9 @@
   const summary = document.querySelector("#summary");
   const filter = document.querySelector("#status-filter");
   const refreshButton = document.querySelector("#refresh-button");
-  const tokenCard = document.querySelector("#admin-token-card");
-  const tokenForm = document.querySelector("#admin-token-form");
-  const tokenInput = document.querySelector("#admin-token");
   const reviewTools = document.querySelector("#review-tools");
   let submissions = [];
-  let adminToken = sessionStorage.getItem("allegory-contributions-token") || "";
+  let csrfToken = "";
 
   function element(tag, attributes = {}, text = "") {
     const node = document.createElement(tag);
@@ -47,10 +44,17 @@
 
   async function api(path, options = {}) {
     const headers = new Headers(options.headers || {});
-    if (adminToken) headers.set("Authorization", `Bearer ${adminToken}`);
+    if (csrfToken && options.method && options.method !== "GET") {
+      headers.set("x-allegory-csrf", csrfToken);
+    }
     const response = await fetch(path, { credentials: "same-origin", ...options, headers });
     const payload = await response.json().catch(() => ({ error: "The server returned an unreadable response." }));
-    if (!response.ok) throw new Error(payload.error || "The request failed.");
+    if (!response.ok) {
+      const error = new Error(payload.error || "The request failed.");
+      error.status = response.status;
+      error.payload = payload;
+      throw error;
+    }
     return payload;
   }
 
@@ -128,7 +132,6 @@
     setNotice(`Downloading ${file.name}…`);
     try {
       const response = await fetch(`/api/contributions/admin/file/${encodeURIComponent(file.id)}`, {
-        headers: { Authorization: `Bearer ${adminToken}` },
         credentials: "same-origin",
       });
       if (!response.ok) {
@@ -156,11 +159,12 @@
     button.disabled = true;
     setNotice("Updating review status…");
     try {
-      await api("/api/contributions/admin/status", {
+      const payload = await api("/api/contributions/admin/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ submissionId, status }),
       });
+      csrfToken = payload.csrfToken || csrfToken;
       const submission = submissions.find((item) => item.id === submissionId);
       if (submission) submission.status = status;
       setNotice("Review status updated.");
@@ -177,11 +181,12 @@
     button.disabled = true;
     setNotice("Deleting submission and stored files…");
     try {
-      await api("/api/contributions/admin/delete", {
+      const payload = await api("/api/contributions/admin/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ submissionId }),
       });
+      csrfToken = payload.csrfToken || csrfToken;
       submissions = submissions.filter((item) => item.id !== submissionId);
       setNotice("Submission deleted.");
       render();
@@ -193,37 +198,33 @@
   }
 
   async function load() {
-    if (!adminToken) return;
     refreshButton.disabled = true;
     setNotice("Loading submissions…");
     try {
       const payload = await api("/api/contributions/admin");
       submissions = Array.isArray(payload.submissions) ? payload.submissions : [];
-      tokenCard.hidden = true;
+      csrfToken = payload.csrfToken || "";
       reviewTools.hidden = false;
       setNotice(submissions.length ? "Private submissions loaded." : "No contributions have been submitted yet.");
       render();
     } catch (error) {
-      adminToken = "";
-      sessionStorage.removeItem("allegory-contributions-token");
-      tokenCard.hidden = false;
       reviewTools.hidden = true;
       list.replaceChildren();
+      if (error.payload?.signInUrl) {
+        location.assign(error.payload.signInUrl);
+        return;
+      }
+      if (error.status === 401) {
+        location.assign("./index.html");
+        return;
+      }
       setNotice(error.message, true);
     } finally {
       refreshButton.disabled = false;
     }
   }
 
-  tokenForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    adminToken = tokenInput.value.trim();
-    if (!adminToken) return;
-    sessionStorage.setItem("allegory-contributions-token", adminToken);
-    tokenInput.value = "";
-    load();
-  });
   filter.addEventListener("change", render);
   refreshButton.addEventListener("click", load);
-  if (adminToken) load();
+  load();
 })();

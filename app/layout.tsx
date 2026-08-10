@@ -6,13 +6,11 @@ import "./overrides.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-
 export const metadata: Metadata = {
   title: { default: "AllegoryNow", template: "%s | AllegoryNow" },
   description: "An evidence-based civic inquiry into New York Family Court and reform.",
   other: { "codex-preview": "development" },
-  icons: { icon: `${basePath}/favicon.svg`, shortcut: `${basePath}/favicon.svg` },
+  icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

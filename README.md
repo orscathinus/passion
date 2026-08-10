@@ -9,45 +9,54 @@ See [ADMIN-GUIDE.md](ADMIN-GUIDE.md) for the exact files to edit, the safe
 publishing routine, and the recommended architecture for a future private
 administrator panel.
 
-The application runs on [vinext](https://github.com/cloudflare/vinext). Published
-administrator edits are stored in Cloudflare D1; the GitHub Pages build loads
-them through the public read-only content endpoint and retains checked-in text
-as a resilient fallback.
+The application is being migrated from a full-stack Cloudflare Worker to one
+Hostinger Node.js application. Both builds use the same public pages and the
+same-origin `/admin`, CMS, comments, and contribution routes. The Hostinger
+runtime stores structured data and private contribution files in its MySQL
+database, so publication never depends on a second domain or deployment.
 
-## GitHub Pages
+## Migration architecture
 
-The repository includes a separate static-export workflow at
-`.github/workflows/deploy-pages.yml`. Pushes to `main` build the public routes
-with the `/passion` base path and deploy the generated `out/` directory to
-GitHub Pages. In the repository settings, set **Pages → Build and deployment →
-Source** to **GitHub Actions**.
+The two build targets remain separate until the Hostinger deployment and data
+transfer are verified:
 
-The normal `npm run build` command remains the Sites/Vinext build. Use
-`GITHUB_PAGES=true NEXT_PUBLIC_BASE_PATH=/passion npm run build:pages` to test
-the Pages export locally.
+- `npm run build` emits the Cloudflare/Sites Worker rollback copy under `dist/`.
+- `npm run build:hostinger` emits the static public site under `out/` and the
+  Hostinger Node entry point at `hostinger-dist/server.mjs`.
+- `npm start` starts the Hostinger server on Hostinger's injected `PORT`.
+- `npm run start:sites` starts the Cloudflare/Vinext build locally.
+
+The Cloudflare export route is disabled unless a temporary `MIGRATION_TOKEN`
+exists. The matching Hostinger import route also requires that token. Remove
+the token from both environments immediately after the one-time D1/R2 transfer.
+See [HOSTINGER-MIGRATION.md](HOSTINGER-MIGRATION.md) for the cutover checklist.
 
 ## Prerequisites
 
 - Node.js `>=22.13.0`
 - Linux with `flock`, `curl`, and GNU `timeout`
 
-## Sites Lifecycle
+## Cloudflare rollback lifecycle
 
 The Sites lifecycle CLI runs the locked dependency install before returning this checkout. Edit the source under `app/`, then checkpoint when a coherent milestone is ready to inspect or share. The remote Sites builder runs `npm run build` against the pushed commit. Do not repeat install or build as a normal pre-checkpoint step.
 
-This starter does not use `wrangler.jsonc`.
+This project does not use a separate `wrangler.jsonc`; the hosting manifest and
+deployment control plane provide the Worker bindings.
 
 `install:ci` is intentionally a single, non-retrying `npm ci`. It refuses a concurrent install for the same project, consumes a matching image-seeded npm cache with `--prefer-offline` while retaining registry fallback for a missing cache object, otherwise downloads and verifies the complete vinext tarball recorded in `package-lock.json`, limits npm to one socket, and terminates a stalled install. `build` applies a short timeout and then validates the Sites artifact. These helpers target Linux and use GNU `timeout`; they are not native macOS scripts.
 
 Scripts that need writable project-scoped home, npm, XDG, and temporary paths use `scripts/sites-env.sh`. The `dev` and `start` scripts honor the caller's runtime environment and keep Wrangler logs inside the checkout. The generated `.sites-runtime/` directory is disposable and ignored by Git.
 
-## Included Shape
+## Included shape
 
 - edit site code under `app/`
 - `app/chatgpt-auth.ts` provides optional dispatch-owned ChatGPT sign-in helpers
 - `.openai/hosting.json` declares optional Sites D1 and R2 bindings
 - `vite.config.ts` simulates declared bindings for local development
 - `db/index.ts` reads the D1 binding from the Cloudflare Worker environment
+- `hostinger/mysql.ts` adapts the CMS and contribution services to Hostinger MySQL
+- `hostinger/server.ts` serves the exported pages and all same-origin APIs
+- `server/migration.ts` exposes the disabled-by-default, token-protected export
 - `db/schema.ts` starts intentionally empty
 - `examples/d1/` contains an optional D1 example surface
 - `drizzle.config.ts` supports local migration generation when needed
@@ -115,8 +124,11 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 - `npm run install:ci`: perform the one bounded lockfile install
 - `npm run dev`: start the Vite/Vinext development server
 - `npm run build`: build and validate the deployable Sites artifact
-- `npm run start`: start the built Vinext application
+- `npm run build:hostinger`: build the Hostinger static site and Node server
+- `npm start`: start the built Hostinger application
+- `npm run start:sites`: start the built Vinext rollback application
 - `npm test`: build, validate, and verify the rendered development-preview metadata
+- `npm run test:hostinger`: build and verify Hostinger routes and artifacts
 - `npm run validate:artifact`: recheck an existing artifact's manifest and ESM `default.fetch` export
 - `npm run db:generate`: generate Drizzle migrations after schema changes
 
