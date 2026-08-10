@@ -21,8 +21,9 @@ The two build targets remain separate until the Hostinger deployment and data
 transfer are verified:
 
 - `npm run build` runs the Hostinger build that hPanel detects automatically.
-- `npm run build:hostinger` emits the static public site under `out/` and the
-  Hostinger Node entry point at `hostinger-dist/server.mjs`.
+- `npm run build:hostinger` emits a self-contained Hostinger application under
+  `hostinger-dist/`, including the Node entry point and a copy of the static
+  public site.
 - `npm run build:sites` emits the Cloudflare/Sites Worker rollback copy under
   `dist/`.
 - `npm start` starts the Hostinger server on Hostinger's injected `PORT`.
